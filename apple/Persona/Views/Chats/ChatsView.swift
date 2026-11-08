@@ -1123,6 +1123,8 @@ private struct AgentsList: View {
                 TodoLinkAgentSheet(space: TodoItem.Space(machineID: group.machineID, space: space))
             }
         }
+        .onChange(of: model.visibleSession) { _, key in if key != nil { openedWorkspace = nil } }
+        .onChange(of: path.isEmpty) { _, empty in if empty { openedWorkspace = nil } }
         .task(id: listQuery) {
             paginationArmed = false
             if !query.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
@@ -1259,7 +1261,10 @@ private struct AgentsList: View {
     #endif
 
     /// The agent open beside the list, if it is one of the list's (not a Persona conversation).
-    private var macOpenNow: SessionKey? { model.visibleSession.flatMap { session($0)?.assistant == true ? nil : $0 } }
+    private var macOpenNow: SessionKey? {
+        guard openedWorkspace == nil else { return nil }
+        return model.visibleSession.flatMap { session($0)?.assistant == true ? nil : $0 }
+    }
 
     /// A card's chat, where it is answered; a card on no session opens by itself (#4059).
     private func openCard(_ ix: Interaction) {
@@ -1269,6 +1274,7 @@ private struct AgentsList: View {
     /// Something the list opens: in the split it replaces the detail column; in one stack the list is at the root, so
     /// this is the same as pushing it.
     private func openFromList(_ value: some Hashable) {
+        openedWorkspace = (value as? HostWorkspace)?.key
         spaceAt = (value as? SpaceRoute).map { [0: $0.id] } ?? [:]
         path = NavigationPath([value])
     }
@@ -1603,6 +1609,7 @@ private struct AgentsList: View {
     /// row with its agents a level in under it.
     @ViewBuilder private func repoSection(_ r: RepoTree.Repo) -> some View {
         repoHeader(r, folded: isFolded(r.id))
+            .selectionDisabled()
             .modifier(FoldAnchor(id: r.id, reader: feed.reader))
             .listRowInsets(EdgeInsets(top: Theme.Space.sm, leading: Theme.WorkspaceSidebar.cardLeading,
                                      bottom: Theme.Space.xs, trailing: Theme.Space.s))
@@ -1621,6 +1628,7 @@ private struct AgentsList: View {
                         }
                         .listRowInsets(EdgeInsets(top: 0, leading: Theme.Space.xs, bottom: Theme.Space.xs, trailing: Theme.Space.xs))
                         .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                        .selectionDisabled()
                     } else { worktreeRows(w) }
                 }
             }
@@ -1764,7 +1772,7 @@ private struct AgentsList: View {
 
     /// A control inside a workspace card is not a List row: row insets and swipe actions would apply to its parent cell.
     private func workspaceAgentButton(_ s: Session) -> some View {
-        Menu { workspaceAgentMenu(s) } label: {
+        WorkspaceSidebarControl(open: { openFromList(s.key) }) {
             slotRowContent(s, context: false, inStateSection: false)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 #if os(macOS)
@@ -1775,12 +1783,10 @@ private struct AgentsList: View {
                 }
                 #endif
                 .contentShape(.rect)
-        } primaryAction: { openedWorkspace = nil; openFromList(s.key) }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+        } actions: { workspaceAgentMenu(s) }
         .macHoverShade(in: RoundedRectangle(cornerRadius: Theme.Radius.control), outset: 0)
         #if os(macOS)
         .macOptionClick { MacShellState.shared.chatWindow = s.key }
-        .macBoundedContextMenu { workspaceAgentMenu(s) }
         #endif
         .accessibilityIdentifier(compact ? "agents.compactRow" : "agents.row")
         .id(s.id)
@@ -2199,7 +2205,7 @@ private struct AgentsList: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                NavigationLink(value: s.key) {
+                regularSlotControl(s) {
                     slotRowContent(s, context: context, inStateSection: inStateSection, cardLast: cardLast, showHost: showHost, pane: pane)
                         .padding(.leading, nested(level))
                         #if os(macOS)
@@ -2213,12 +2219,12 @@ private struct AgentsList: View {
                         #endif
                         .macHoverShade(in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous), outset: Theme.Space.xs)
                 }
-                #if os(macOS)
-                .macOptionClick { MacShellState.shared.chatWindow = s.key } // ⌥-click: in a window of its own
-                #endif
             }
         }
             .accessibilityIdentifier(compact ? "agents.compactRow" : "agents.row")
+            #if os(macOS)
+            .selectionDisabled(grouping == .repo)
+            #endif
             // BeautifulUI's Capsules: each agent its own capsule on the page (no list card, line or system chevron); List and
             // Persona' own rows: the list's card.
             .navigationLinkIndicatorVisibility(grouping == .repo || capsules ? .hidden : .automatic)
@@ -2256,6 +2262,22 @@ private struct AgentsList: View {
                              paneActions: NodeMenu.offersPaneActions(s), actions: rowActions)
                     .equatable()
             }
+    }
+
+    @ViewBuilder private func regularSlotControl<Content: View>(_ s: Session, @ViewBuilder content: () -> Content) -> some View {
+        #if os(macOS)
+        // Use the same bound detail path as workspace cards; a value link owns an independent split selection.
+        if grouping == .repo {
+            Button { openFromList(s.key) } label: { content() }
+                .buttonStyle(.plain)
+                .macOptionClick { MacShellState.shared.chatWindow = s.key }
+        } else {
+            NavigationLink(value: s.key) { content() }
+                .macOptionClick { MacShellState.shared.chatWindow = s.key }
+        }
+        #else
+        NavigationLink(value: s.key) { content() }
+        #endif
     }
 }
 

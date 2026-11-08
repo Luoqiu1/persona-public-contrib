@@ -70,10 +70,10 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            HStack(alignment: .top, spacing: Theme.Space.xxs) {
-                WorkspaceSidebarStatus(workspace: workspace)
-                VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                    Menu { workspaceActions } label: {
+            WorkspaceSidebarControl(open: { if let target = workspace.workspace { open(target) } }) {
+                HStack(alignment: .top, spacing: Theme.Space.xxs) {
+                    WorkspaceSidebarStatus(workspace: workspace)
+                    VStack(alignment: .leading, spacing: Theme.Space.sm) {
                         HStack(spacing: Theme.Space.sm) {
                             Text(workspace.name)
                                 .font(workspace.sidebarUnread ? Theme.WorkspaceSidebar.titleUnread : Theme.WorkspaceSidebar.title)
@@ -91,13 +91,17 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                         }
                         .scaledFrame(minHeight: Theme.WorkspaceSidebar.titleHeight)
                         .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
-                    } primaryAction: { if let target = workspace.workspace { open(target) } }
-                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
-                    .accessibilityIdentifier("agents.worktree")
-                    #if os(macOS)
-                    .macBoundedContextMenu { workspaceActions }
-                    #endif
-                    metadata
+                        metadata
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
+            } actions: { workspaceActions }
+            .accessibilityIdentifier("agents.worktree")
+            .accessibilityLabel(workspace.name)
+            .accessibilityValue([workspace.main ? String(localized: "workspace.primary", defaultValue: "Primary") : "",
+                                 workspace.workspace?.branch ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
+            if !workspace.sessions.isEmpty || !workspace.children.isEmpty {
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     if workspace.sessions.count > 1 {
                         agentDisclosure
                         if agentOpen { ForEach(ordered(workspace.sessions)) { agent($0) } }
@@ -111,6 +115,7 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                         .buttonStyle(.plain).accessibilityIdentifier("agents.childSpaces")
                     }
                 }
+                .padding(.leading, Theme.WorkspaceSidebar.statusLane + Theme.Space.xxs)
             }
             if !workspace.children.isEmpty && childOpen {
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {

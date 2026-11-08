@@ -35878,13 +35878,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "デタッチされたHEAD"
+            "value": "Detached HEAD"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "分离的 HEAD"
+            "value": "Detached HEAD"
           }
         }
       },

@@ -80,6 +80,25 @@ nonisolated struct RepoTree {
         var treeSessions: [Session] { sessions + children.flatMap(\.treeSessions) }
         var catalog = false
         var workspace: HostWorkspace? = nil
+
+        /// Repository grouping names the root; nested cards repeat a repository only at a parent/child boundary.
+        func repositoryBadge(parent: HostWorkspace?, inheritedName: String) -> String? {
+            guard let workspace, let parent, let name = workspace.projectName, !name.isEmpty else { return nil }
+            guard workspace.machineRef == parent.machineRef && workspace.source == parent.source else { return name }
+            if let id = workspace.projectID, !id.isEmpty, let parentID = parent.projectID, !parentID.isEmpty {
+                return id == parentID ? nil : name
+            }
+            if let path = workspace.projectPath, !path.isEmpty, let parentPath = parent.projectPath, !parentPath.isEmpty {
+                func normalized(_ value: String) -> String {
+                    var path = value
+                    while path.count > 1 && path.hasSuffix("/") { path.removeLast() }
+                    return path
+                }
+                return normalized(path) == normalized(parentPath) ? nil : name
+            }
+            let parentName = parent.projectName.flatMap { $0.isEmpty ? nil : $0 } ?? inheritedName
+            return name == parentName ? nil : name
+        }
     }
 
     /// One repository on one machine.

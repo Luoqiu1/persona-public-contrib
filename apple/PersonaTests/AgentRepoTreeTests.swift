@@ -294,4 +294,43 @@ struct AgentRepoTreeTests {
         #expect(repos[0].worktrees.count == 2)
     }
 
+    private func badge(_ workspace: HostWorkspace, parent: HostWorkspace?, inheritedName: String = "root") -> String? {
+        RepoTree.Worktree(id: workspace.key, name: workspace.title, path: workspace.cwd, main: false, sessions: [],
+                          catalog: true, workspace: workspace).repositoryBadge(parent: parent, inheritedName: inheritedName)
+    }
+
+    @Test func repositoryBadgesAppearOnlyAtDirectParentRepositoryChanges() {
+        var chain = (0..<5).map { workspace("tree-\($0)") }
+        for i in chain.indices {
+            chain[i].projectID = ["root", "service", "service", "frontend", "frontend"][i]
+            chain[i].projectName = chain[i].projectID
+        }
+        let labels = chain.indices.map { i in badge(chain[i], parent: i == 0 ? nil : chain[i - 1]) }
+        #expect(labels == [nil, "service", nil, "frontend", nil])
+        #expect(badge(chain[1], parent: chain[4]) == "service", "Switching back to an ancestor's repository is another boundary")
+    }
+
+    @Test func repositoryBadgesUseRepositoryIDsRatherThanDisplayNames() {
+        var parent = workspace("parent"), child = workspace("child", parent: "parent")
+        parent.projectID = "one"; child.projectID = "two"
+        parent.projectName = "app"; child.projectName = "app"
+        #expect(badge(child, parent: parent) == "app", "Different repositories can have the same display name")
+        child.projectID = parent.projectID
+        child.projectName = "renamed app"
+        #expect(badge(child, parent: parent) == nil, "A newer name in a snapshot does not change repository identity")
+    }
+
+    @Test func olderRepositoryMetadataUsesPathsThenTheInheritedName() {
+        var parent = workspace("parent"), child = workspace("child", parent: "parent")
+        parent.projectPath = "/code/app/"; child.projectPath = "/code/app"
+        parent.projectName = "app"; child.projectName = "app"
+        #expect(badge(child, parent: parent) == nil)
+        child.projectPath = "/other/app"
+        #expect(badge(child, parent: parent) == "app")
+        parent.projectPath = nil; child.projectPath = nil; parent.projectName = nil
+        #expect(badge(child, parent: parent, inheritedName: "app") == nil)
+        #expect(badge(child, parent: parent, inheritedName: "other") == "app")
+        #expect(badge(child, parent: nil) == nil, "A grouped root already has its repository heading")
+    }
+
 }

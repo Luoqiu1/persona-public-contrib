@@ -52,6 +52,7 @@ struct WorkspaceSidebarStatus: View {
 struct WorkspaceSidebarCard<AgentContent: View, Actions: View>: View {
     var workspace: RepoTree.Worktree
     var project: String
+    var parentWorkspace: HostWorkspace? = nil
     var selectedSession: SessionKey?
     var selectedWorkspace: String?
     var folded: (String) -> Bool
@@ -123,7 +124,8 @@ struct WorkspaceSidebarCard<AgentContent: View, Actions: View>: View {
             if !workspace.children.isEmpty && childOpen {
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
                     ForEach(workspace.children) { child in
-                        WorkspaceSidebarCard(workspace: child, project: project, selectedSession: selectedSession,
+                        WorkspaceSidebarCard(workspace: child, project: workspace.workspace?.projectName.flatMap { $0.isEmpty ? nil : $0 } ?? project,
+                                             parentWorkspace: workspace.workspace ?? parentWorkspace, selectedSession: selectedSession,
                                              selectedWorkspace: selectedWorkspace, folded: folded, toggle: toggle,
                                              open: open, openAgent: openAgent, appeared: appeared, agentIdentifier: agentIdentifier,
                                              ordered: ordered, agent: agent, actions: actions)
@@ -168,7 +170,7 @@ struct WorkspaceSidebarCard<AgentContent: View, Actions: View>: View {
 
     private var metadata: some View {
         HStack(spacing: Theme.Space.sm) {
-            if let name = workspace.workspace?.projectName, !name.isEmpty, name != project {
+            if let name = workspace.repositoryBadge(parent: parentWorkspace, inheritedName: project) {
                 HStack(spacing: Theme.Space.xxs) {
                     Rectangle().fill(Theme.WorkspaceSidebar.muted).scaledFrame(width: Theme.Size.dotXS, height: Theme.Size.dotXS)
                     Text(name).lineLimit(1)

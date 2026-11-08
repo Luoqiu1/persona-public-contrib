@@ -3,6 +3,7 @@ import SwiftUI
 /// Successful manager snapshots survive a transient read failure. No synthetic Agent is ever added to the inventory.
 @MainActor @Observable final class WorkspaceCatalog {
     private(set) var workspaces: [HostWorkspace] = []
+    private(set) var revision: UInt64 = 0
 
     func refresh(_ groups: [String], api: (String) -> APIClient?) async {
         var next = workspaces.filter { groups.contains($0.group) }
@@ -19,7 +20,10 @@ import SwiftUI
             }
         }
         guard !Task.isCancelled else { return }
-        if next != workspaces { workspaces = next }
+        if next != workspaces {
+            workspaces = next
+            revision &+= 1
+        }
     }
 }
 

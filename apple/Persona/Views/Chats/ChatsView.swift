@@ -1733,7 +1733,7 @@ private struct AgentsList: View {
                                 .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(String(localized: "workspace.toggle", defaultValue: "Expand or collapse workspace"))
+                        .accessibilityLabel(String(localized: "workspace.toggle", defaultValue: "Expand or collapse worktree"))
                         .accessibilityIdentifier("agents.foldWorkspace")
                     }
                 }

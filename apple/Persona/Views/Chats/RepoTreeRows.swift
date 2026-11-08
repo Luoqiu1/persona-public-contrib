@@ -206,7 +206,7 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain).accessibilityIdentifier("agents.foldWorkspace")
-        .accessibilityLabel(String(localized: "workspace.toggle", defaultValue: "Expand or collapse workspace"))
+        .accessibilityLabel(String(localized: "workspace.toggle", defaultValue: "Expand or collapse worktree"))
     }
 }
 

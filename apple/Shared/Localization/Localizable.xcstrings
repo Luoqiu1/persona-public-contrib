@@ -128779,19 +128779,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Child Workspaces"
+            "value": "Child Worktrees"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "子ワークスペース"
+            "value": "子ワークツリー"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "子工作区"
+            "value": "子工作树"
           }
         }
       }
@@ -128802,19 +128802,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose Workspace"
+            "value": "Choose Worktree"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ワークスペースを選択"
+            "value": "ワークツリーを選択"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择工作区"
+            "value": "选择工作树"
           }
         }
       }
@@ -128848,19 +128848,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opens a new tab in the selected workspace."
+            "value": "Opens a new tab in the selected worktree."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選択したワークスペースで新しいタブを開きます。"
+            "value": "選択したワークツリーで新しいタブを開きます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在所选工作区中打开新的会话标签。"
+            "value": "在所选工作树中打开新的会话标签。"
           }
         }
       }
@@ -128894,19 +128894,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Child Workspace…"
+            "value": "New Child Worktree…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "子ワークスペースを作成…"
+            "value": "子ワークツリーを作成…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新建子工作区…"
+            "value": "新建子工作树…"
           }
         }
       }
@@ -128917,19 +128917,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Workspace"
+            "value": "New Worktree"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ワークスペース作成"
+            "value": "ワークツリー作成"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新建工作区"
+            "value": "新建工作树"
           }
         }
       }
@@ -128940,19 +128940,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No sessions here yet. Start one in this workspace."
+            "value": "No sessions here yet. Start one in this worktree."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "まだセッションがありません。このワークスペースで開始できます。"
+            "value": "まだセッションがありません。このワークツリーで開始できます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这里还没有会话，可以在此工作区新建。"
+            "value": "这里还没有会话，可以在此工作树新建。"
           }
         }
       }
@@ -128963,19 +128963,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Parent Workspace"
+            "value": "Parent Worktree"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "親ワークスペース"
+            "value": "親ワークツリー"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "父工作区"
+            "value": "父工作树"
           }
         }
       }
@@ -128986,19 +128986,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose any workspace on this computer, including another project's workspace or a folder."
+            "value": "Choose any worktree on this computer, including another project's worktree or a folder."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このコンピュータ上の任意のワークスペースを選べます。他のプロジェクトやフォルダも選択できます。"
+            "value": "このコンピュータ上の任意のワークツリーを選べます。他のプロジェクトやフォルダも選択できます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "可选择此电脑上的任意工作区，包括其他项目的工作区或文件夹。"
+            "value": "可选择此电脑上的任意工作树，包括其他项目的工作树或文件夹。"
           }
         }
       }
@@ -129055,19 +129055,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The new checkout uses this workspace's repository and current commit."
+            "value": "The new worktree uses this worktree's repository and current commit."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このワークスペースのリポジトリと現在のコミットから作成します。"
+            "value": "このワークツリーのリポジトリと現在のコミットから作成します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新工作区使用此工作区的仓库和当前提交。"
+            "value": "新工作树使用此工作树的仓库和当前提交。"
           }
         }
       }
@@ -129101,19 +129101,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Workspace"
+            "value": "Worktree"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ワークスペース"
+            "value": "ワークツリー"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作区"
+            "value": "工作树"
           }
         }
       }
@@ -129124,19 +129124,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Expand or collapse workspace"
+            "value": "Expand or collapse worktree"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ワークスペースを展開・折りたたむ"
+            "value": "ワークツリーを展開・折りたたむ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "展开或折叠工作区"
+            "value": "展开或折叠工作树"
           }
         }
       }
@@ -129275,6 +129275,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lldd"
+          }
+        }
+      }
+    },
+    "worktree.open": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Worktree"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークツリーを開く"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开工作树"
+          }
+        }
+      }
+    },
+    "worktree.copyName": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Worktree Name"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークツリー名をコピー"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷贝工作树名称"
+          }
+        }
+      }
+    },
+    "worktree.openParent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Parent Worktree"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "親ワークツリーを開く"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开父工作树"
           }
         }
       }

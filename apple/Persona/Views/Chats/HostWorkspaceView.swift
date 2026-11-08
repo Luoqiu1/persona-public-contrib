@@ -42,14 +42,14 @@ struct HostWorkspaceView: View {
                     .disabled(!online || current.cwd.isEmpty)
                     .accessibilityIdentifier("workspace.newSession")
                 Button { showChild = true } label: {
-                    Label(String(localized: "workspace.newChild", defaultValue: "New Child Workspace…"), systemImage: Theme.Icon.newWorktree)
+                    Label(String(localized: "workspace.newChild", defaultValue: "New Child Worktree…"), systemImage: Theme.Icon.newWorktree)
                 }
                 .buttonStyle(.borderless)
                 .disabled(!online)
                 .accessibilityIdentifier("workspace.newChild")
             }
             if !children.isEmpty {
-                Section(String(localized: "workspace.children", defaultValue: "Child Workspaces")) {
+                Section(String(localized: "workspace.children", defaultValue: "Child Worktrees")) {
                     ForEach(children) { child in
                         NavigationLink(value: child) { WorkspaceChoiceRow(workspace: child, catalog: catalog.workspaces) }
                     }
@@ -57,7 +57,7 @@ struct HostWorkspaceView: View {
             }
             Section(String(localized: "workspace.sessions", defaultValue: "Sessions and History")) {
                 if sessions.isEmpty && !loading {
-                    Text(String(localized: "workspace.noSessions", defaultValue: "No sessions here yet. Start one in this workspace."))
+                    Text(String(localized: "workspace.noSessions", defaultValue: "No sessions here yet. Start one in this worktree."))
                         .foregroundStyle(.secondary)
                 }
                 ForEach(sessions) { s in
@@ -185,7 +185,7 @@ struct WorkspacePicker: View {
             }
         }
         .themedGroupedPage()
-        .navigationTitle(String(localized: "workspace.choose", defaultValue: "Choose Workspace"))
+        .navigationTitle(String(localized: "workspace.choose", defaultValue: "Choose Worktree"))
         .searchable(text: $query)
     }
 }

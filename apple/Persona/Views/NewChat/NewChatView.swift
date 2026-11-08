@@ -163,13 +163,13 @@ struct NewChatView: View {
                                 if let picked { cwd = picked.cwd }
                             }
                         } label: {
-                            LabeledContent(String(localized: "workspace.target", defaultValue: "Workspace"),
+                            LabeledContent(String(localized: "workspace.target", defaultValue: "Worktree"),
                                            value: pickedWorkspace?.title ?? String(localized: "workspace.useDirectory", defaultValue: "Choose by Folder"))
                         }
                         .accessibilityIdentifier("newChat.workspace")
                         if let pickedWorkspace {
                             Button { childSource = pickedWorkspace } label: {
-                                Label(String(localized: "workspace.newChild", defaultValue: "New Child Workspace…"), systemImage: Theme.Icon.newWorktree)
+                                Label(String(localized: "workspace.newChild", defaultValue: "New Child Worktree…"), systemImage: Theme.Icon.newWorktree)
                             }
                             .accessibilityIdentifier("newChat.newChild")
                         }

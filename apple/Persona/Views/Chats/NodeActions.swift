@@ -681,14 +681,14 @@ struct NewWorktreeSheet: View {
                             }
                             .accessibilityIdentifier("worktree.source")
                         } footer: {
-                            Text(String(localized: "workspace.sourceHelp", defaultValue: "The new checkout uses this workspace's repository and current commit."))
+                            Text(String(localized: "workspace.sourceHelp", defaultValue: "The new worktree uses this worktree's repository and current commit."))
                         }
                         Section {
                             NavigationLink {
                                 WorkspacePicker(workspaces: choices, selectedID: parentWorkspaceID) { pick in parentID = pick?.sourceID }
                             } label: {
                                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                                    Text(String(localized: "workspace.parent", defaultValue: "Parent Workspace"))
+                                    Text(String(localized: "workspace.parent", defaultValue: "Parent Worktree"))
                                     #if os(iOS) || os(visionOS)
                                     Text(parent?.title ?? group.name).font(Theme.Font.secondaryStrong).lineLimit(1)
                                     #endif
@@ -699,7 +699,7 @@ struct NewWorktreeSheet: View {
                             .disabled(repo.value?.chooseParent != true)
                         } footer: {
                             if let r = repo.value, !r.chooseParent { Text(WorktreeForm.needsUpdate) }
-                            else { Text(String(localized: "workspace.parentHelp", defaultValue: "Choose any workspace on this computer, including another project's workspace or a folder.")) }
+                            else { Text(String(localized: "workspace.parentHelp", defaultValue: "Choose any worktree on this computer, including another project's worktree or a folder.")) }
                         }
                     }
                     switch repo {
@@ -714,7 +714,7 @@ struct NewWorktreeSheet: View {
                 }
                 .disabled(busy)
                 .themedPage()
-                .navigationTitle(workspace == nil ? String(localized: "New Worktree") : String(localized: "workspace.newChildTitle", defaultValue: "New Workspace"))
+                .navigationTitle(workspace == nil ? String(localized: "New Worktree") : String(localized: "workspace.newChildTitle", defaultValue: "New Worktree"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.lineLimit(1).disabled(busy) }

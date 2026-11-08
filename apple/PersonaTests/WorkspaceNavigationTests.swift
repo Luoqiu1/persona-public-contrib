@@ -56,6 +56,24 @@ struct WorkspaceNavigationTests {
         #expect(acknowledged.resolvedParent(sourceID: "code") == "folder")
     }
 
+    @MainActor @Test func childCreationFromAnEmptyNestedWorkspaceKeepsItsExactTarget() throws {
+        let parent = workspace("nested-folder", parent: "root", group: "remote-hub")
+        let group = parent.creationGroup
+        #expect(group.machineRef == parent.machineRef)
+        #expect(group.spaceID == parent.sourceID && group.sessions.isEmpty)
+        let made = try JSON.decoder.decode(WorktreeCreated.self, from: Data(#"{"workspace_id":"new","path":"/work/new","branch":"test/child","parent_workspace_id":"nested-folder"}"#.utf8))
+        let child = parent.createdWorkspace(made)
+        #expect(child.machineRef == parent.machineRef && child.source == parent.source)
+        #expect(child.parentKey == parent.key && child.sourceID == "new")
+        #expect(child.branch == "test/child" && child.cwd == "/work/new")
+    }
+
+    @Test func childDestinationUsesTheServersParentWhenTheUserChangesIt() throws {
+        let origin = workspace("clicked")
+        let made = try JSON.decoder.decode(WorktreeCreated.self, from: Data(#"{"workspace_id":"new","path":"/work/new","branch":"test/child","parent_workspace_id":"chosen-elsewhere"}"#.utf8))
+        #expect(origin.createdWorkspace(made).parentSourceID == "chosen-elsewhere")
+    }
+
     @Test func breadcrumbsIncludeTheRootProjectRatherThanAChildsGitProject() throws {
         var root = workspace("research"), child = workspace("nested", parent: "research")
         root.projectName = "app"; child.projectName = "other"

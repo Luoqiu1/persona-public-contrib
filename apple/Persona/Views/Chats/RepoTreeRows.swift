@@ -57,6 +57,7 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
     var folded: (String) -> Bool
     var toggle: (String) -> Void
     var open: (HostWorkspace) -> Void
+    var newChild: (HostWorkspace) -> Void
     var ordered: ([Session]) -> [Session]
     @ViewBuilder var agent: (Session) -> AgentContent
     @State private var hovered = false
@@ -72,7 +73,15 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
             HStack(alignment: .top, spacing: Theme.Space.xxs) {
                 WorkspaceSidebarStatus(workspace: workspace)
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                    Button { if let target = workspace.workspace { open(target) } } label: {
+                    Menu {
+                        if let target = workspace.workspace {
+                            Button { newChild(target) } label: {
+                                Label(String(localized: "workspace.newChild", defaultValue: "New Child Workspace…"), systemImage: Theme.Icon.newWorktree)
+                            }
+                            .disabled(!target.online || !target.available)
+                            .accessibilityIdentifier("workspace.newChild")
+                        }
+                    } label: {
                         HStack(spacing: Theme.Space.sm) {
                             Text(workspace.name)
                                 .font(workspace.sidebarUnread ? Theme.WorkspaceSidebar.titleUnread : Theme.WorkspaceSidebar.title)
@@ -90,8 +99,9 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                         }
                         .scaledFrame(minHeight: Theme.WorkspaceSidebar.titleHeight)
                         .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
-                    }
-                    .buttonStyle(.plain).accessibilityIdentifier("agents.worktree")
+                    } primaryAction: { if let target = workspace.workspace { open(target) } }
+                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+                    .accessibilityIdentifier("agents.worktree")
                     metadata
                     if workspace.sessions.count > 1 {
                         agentDisclosure
@@ -112,7 +122,7 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                     ForEach(workspace.children) { child in
                         WorkspaceSidebarCard(workspace: child, project: project, selectedSession: selectedSession,
                                              selectedWorkspace: selectedWorkspace, folded: folded, toggle: toggle,
-                                             open: open, ordered: ordered, agent: agent)
+                                             open: open, newChild: newChild, ordered: ordered, agent: agent)
                     }
                 }.padding(.leading, Theme.WorkspaceSidebar.childInset)
             }

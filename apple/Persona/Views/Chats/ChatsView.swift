@@ -529,6 +529,7 @@ struct ChatsView: View {
 private struct AgentsList: View {
     @State private var workspaceCatalog = WorkspaceCatalog()
     @State private var openedWorkspace: String?
+    @State private var creatingChild: HostWorkspace?
     #if os(macOS)
     static let emptyMessage = String(localized: "Start an agent on any of your computers, then follow it live and take over here.")
     #else
@@ -1104,6 +1105,15 @@ private struct AgentsList: View {
         .confirmClose($closingSession)
         .confirmDeleteSession($deletingSession)
         .nodeActionPrompts()
+        .sheet(item: $creatingChild) { workspace in
+            NewWorktreeSheet(group: workspace.creationGroup, workspace: workspace) { made in
+                creatingChild = nil
+                let child = workspace.createdWorkspace(made)
+                openedWorkspace = child.key
+                openFromList(child)
+                Task { await workspaceCatalog.refresh(model.groupIDs) { model.api($0) } }
+            }
+        }
         .sheet(item: $linkingSession) { s in
             TodoLinkAgentSheet(session: s)
         }
@@ -1605,7 +1615,8 @@ private struct AgentsList: View {
                     if w.catalog {
                         WorkspaceSidebarCard(workspace: w, project: r.name, selectedSession: openedWorkspace == nil ? model.visibleSession : nil,
                                              selectedWorkspace: openedWorkspace, folded: { isFolded($0) }, toggle: { toggleFold($0) },
-                                             open: { openedWorkspace = $0.key; openFromList($0) }, ordered: { ordered($0) }) { s in
+                                             open: { openedWorkspace = $0.key; openFromList($0) },
+                                             newChild: { creatingChild = $0 }, ordered: { ordered($0) }) { s in
                             workspaceAgentButton(s)
                         }
                         .listRowInsets(EdgeInsets(top: 0, leading: Theme.Space.xs, bottom: Theme.Space.xs, trailing: Theme.Space.xs))

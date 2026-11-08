@@ -28,11 +28,6 @@ struct HostWorkspaceView: View {
             ($0.index ?? Int.max, $0.title) < ($1.index ?? Int.max, $1.title)
         }
     }
-    private var group: SpaceGroup {
-        SpaceGroup(id: current.key, machineID: current.machineID, spaceID: current.sourceID, group: current.group,
-                   name: current.title, index: current.index ?? 0, sessions: sessions)
-    }
-
     var body: some View {
         List {
             Section {
@@ -96,11 +91,9 @@ struct HostWorkspaceView: View {
             NewChatView(preset: current.preset) { s in showNew = false; started = s.key }
         }
         .sheet(isPresented: $showChild) {
-            NewWorktreeSheet(group: group, workspace: current) { made in
+            NewWorktreeSheet(group: current.creationGroup, workspace: current) { made in
                 showChild = false
-                openedChild = HostWorkspace(machineID: current.machineID, source: current.source, sourceID: made.workspaceID,
-                                            title: made.branch, cwd: made.path, parentSourceID: made.parentWorkspaceID ?? current.sourceID,
-                                            group: current.group)
+                openedChild = current.createdWorkspace(made)
             }
         }
         .navigationDestination(item: $started) { key in ChatView(key: key).id(key).splitDetailPage(ownsBack: true) }
@@ -133,6 +126,16 @@ struct HostWorkspaceView: View {
 
 extension HostWorkspace {
     nonisolated var preset: SpacePreset { SpacePreset(machineID: machineRef.path, cwd: cwd, workspaceID: sourceID, spaceName: title) }
+
+    /// Empty containers and deep descendants use the workspace identity, never an Agent's inferred space.
+    nonisolated var creationGroup: SpaceGroup {
+        SpaceGroup(id: key, machineID: machineID, spaceID: sourceID, group: group, name: title, index: index ?? 0, sessions: [])
+    }
+
+    nonisolated func createdWorkspace(_ made: WorktreeCreated) -> HostWorkspace {
+        HostWorkspace(machineID: machineID, source: source, sourceID: made.workspaceID, title: made.branch,
+                      cwd: made.path, branch: made.branch, parentSourceID: made.parentWorkspaceID ?? sourceID, group: group)
+    }
 }
 
 struct WorkspaceChoiceRow: View {

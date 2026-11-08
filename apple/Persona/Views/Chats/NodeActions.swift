@@ -677,7 +677,7 @@ struct NewWorktreeSheet: View {
     var body: some View {
         if let created {
             NewChatView(preset: SpacePreset(machineID: group.machineRef.path, cwd: created.path, workspaceID: created.workspaceID,
-                                            spaceName: created.branch)) { s in dismiss(); model.open(s.key) }
+                                            spaceName: created.branch, host: kind)) { s in dismiss(); model.open(s.key) }
         } else {
             NavigationStack {
                 Form {

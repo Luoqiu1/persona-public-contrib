@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension HostWorkspace {
-    nonisolated var preset: SpacePreset { SpacePreset(machineID: machineRef.path, cwd: cwd, workspaceID: sourceID, spaceName: title) }
+    nonisolated var preset: SpacePreset { SpacePreset(machineID: machineRef.path, cwd: cwd, workspaceID: sourceID, spaceName: title, host: source) }
 
     /// Empty containers and deep descendants use the workspace identity, never an Agent's inferred space.
     nonisolated var creationGroup: SpaceGroup {

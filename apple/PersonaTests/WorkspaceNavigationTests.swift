@@ -39,6 +39,7 @@ struct WorkspaceNavigationTests {
         #expect(b.contains(s, catalog: [a, b]))
         #expect(b.preset.workspaceID == "b")
         #expect(b.preset.machineID == "m")
+        #expect(b.preset.host == "orca")
     }
 
     @Test func parentSelectionIsIndependentOfTheCodeSource() {

@@ -580,6 +580,8 @@ nonisolated struct APIClient: Sendable {
         var prompt: String?
         var resumeSessionID: String?
         var workspaceID: String?
+        /// The selected workspace's host; nil opens in the machine's default host.
+        var host: String? = nil
         var permissionMode: String? = nil
         var effort: String? = nil
         /// The model picked in New Agent for this start (`LauncherModels`); nil: the launcher's, or Model Settings'.
@@ -595,7 +597,7 @@ nonisolated struct APIClient: Sendable {
         /// older hub would ignore the field rather than refuse it); nil leaves it out.
         var ultracode: Bool? = nil
         enum CodingKeys: String, CodingKey {
-            case cwd, launcher, prompt, effort, async, model, ultracode
+            case cwd, launcher, prompt, host, effort, async, model, ultracode
             case machineID = "machine_id", resumeSessionID = "resume_session_id", workspaceID = "workspace_id",
                  permissionMode = "permission_mode", tabName = "tab_name", nameHint = "name_hint", todoID = "todo_id"
         }

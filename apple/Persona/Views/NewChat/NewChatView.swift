@@ -8,6 +8,12 @@ nonisolated struct SpacePreset {
     var cwd: String
     var workspaceID: String
     var spaceName: String
+    /// Workspace IDs belong to their host; nil keeps directory-only and legacy starts on the machine's default.
+    var host: String? = nil
+
+    static func destination(preset: Self?, workspace: HostWorkspace?) -> Self? {
+        preset ?? workspace?.preset
+    }
 }
 
 /// Pick a machine, a project directory and a launcher (model), optionally with a first message.
@@ -65,7 +71,7 @@ struct NewChatView: View {
     /// `machineID` is what is remembered: the machine id, "group|id" for another group of hubs (`MachineRef.path`).
     private var ref: MachineRef { MachineRef(path: machineID) }
     private var machine: Machine? { model.machine(ref) }
-    private var targetPreset: SpacePreset? { preset ?? pickedWorkspace?.preset }
+    private var targetPreset: SpacePreset? { SpacePreset.destination(preset: preset, workspace: pickedWorkspace) }
     private var workspaceChoices: [HostWorkspace] {
         workspaceCatalog.workspaces.filter { $0.machineRef == ref && $0.source == "orca" }
     }
@@ -617,7 +623,7 @@ struct NewChatView: View {
                 // Codex picks its thread's id once it has the first message: it goes with the start, which answers
                 // with that thread (one session, already working on it).
                 let s = try await api.start(.init(machineID: ref.id, cwd: cwd, launcher: launcher, prompt: contextBlock == nil ? prompt : outgoing,
-                                                  workspaceID: targetPreset?.workspaceID, model: modelChoice?.sent, tabName: name.isEmpty ? nil : name,
+                                                  workspaceID: targetPreset?.workspaceID, host: targetPreset?.host, model: modelChoice?.sent, tabName: name.isEmpty ? nil : name,
                                                   nameHint: nameHint ?? (p.isEmpty ? nil : p), todoID: todoID))
                 UserDefaults.standard.set(launcher, forKey: "launcher.\(machineID)")
                 UserDefaults.standard.set(cwd, forKey: "cwd.\(machineID)")
@@ -629,7 +635,7 @@ struct NewChatView: View {
             // The hub answers at once and starts claude in the background; the first message goes out as an ordinary
             // message (on screen right away, typed in once claude is ready).
             let s = try await api.start(.init(machineID: ref.id, cwd: cwd, launcher: launcher, prompt: nil,
-                                              workspaceID: targetPreset?.workspaceID, permissionMode: mode.isEmpty ? nil : mode,
+                                              workspaceID: targetPreset?.workspaceID, host: targetPreset?.host, permissionMode: mode.isEmpty ? nil : mode,
                                               effort: effort.isEmpty ? nil : effort, model: modelChoice?.sent, tabName: name.isEmpty ? nil : name,
                                               async: true, nameHint: nameHint ?? (p.isEmpty ? nil : p), todoID: todoID,
                                               ultracode: sendsUltracode ? true : nil))

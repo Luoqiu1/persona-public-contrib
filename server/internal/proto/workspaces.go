@@ -7,12 +7,15 @@ type Workspace struct {
 	MachineID string `json:"machine_id,omitempty"`
 	Source    string `json:"source"`
 	SourceID  string `json:"source_id"`
-	Title     string `json:"title"`
-	Cwd       string `json:"cwd"`
-	Branch    string `json:"branch,omitempty"`
-	Online    bool   `json:"online"`
-	Available bool   `json:"available"`
-	LastSeen  string `json:"last_seen,omitempty"`
+	// ParentSourceID names a workspace on the same machine and source, even without agents.
+	ParentSourceID string `json:"parent_source_id,omitempty"`
+	Index          int    `json:"index"`
+	Title          string `json:"title"`
+	Cwd            string `json:"cwd"`
+	Branch         string `json:"branch,omitempty"`
+	Online         bool   `json:"online"`
+	Available      bool   `json:"available"`
+	LastSeen       string `json:"last_seen,omitempty"`
 }
 
 type WorkspacesResponse struct {

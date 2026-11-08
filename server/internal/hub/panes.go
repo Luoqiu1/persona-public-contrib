@@ -122,7 +122,7 @@ var nodeActions = map[string]nodeAction{
 	// #2431 "New worktree…": the repository of a workspace the host lists, and a Git worktree of it opened as a workspace.
 	// The branch and the path are typed in the dialog; the node refuses a path that holds something and never forces.
 	"worktree/prepare": {method: "worktree.prepare", timeout: 30 * time.Second, required: []string{"workspace_id"}, optional: []string{"kind"}},
-	"worktree/create":  {method: "worktree.create", timeout: 150 * time.Second, required: []string{"workspace_id", "branch", "path"}, optional: []string{"kind"}},
+	"worktree/create":  {method: "worktree.create", timeout: 150 * time.Second, required: []string{"workspace_id", "branch", "path"}, optional: []string{"kind", "parent_workspace_id"}},
 	// #6115 a new agent in a worktree of its own: made from its folder, told apart, removed when it is closed and the
 	// user says so (the node refuses uncommitted work and unmerged branches unless force, which the user confirms).
 	"worktree/add":    {method: "worktree.add", timeout: 150 * time.Second, required: []string{"cwd"}, optional: []string{"branch", "name_hint", "kind"}},

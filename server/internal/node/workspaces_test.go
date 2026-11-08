@@ -67,6 +67,25 @@ func TestWorkspacesListOrcaKeepsWorktreesWithoutTerminals(t *testing.T) {
 	}
 }
 
+func TestWorkspacesCatalogPreservesOrcaHierarchyWithoutAgents(t *testing.T) {
+	n, _, o, procs, _ := orcaNode(t)
+	root := orcarttest.Worktree("root", "/tmp/root", "")
+	root["displayName"] = "Workspace collection"
+	child := orcarttest.Worktree("child", "/tmp/elsewhere", "refs/heads/feature")
+	child["parentWorktreeId"] = "root"
+	grandchild := orcarttest.Worktree("grandchild", "/tmp/third", "")
+	grandchild["parentWorktreeId"] = "child"
+	o.SetWorktrees(root, child, grandchild)
+	w := workspaceList(t, n)
+	if len(w) != 3 || w[0].Title != "Workspace collection" || w[0].ParentSourceID != "" ||
+		w[1].ParentSourceID != "root" || w[2].ParentSourceID != "child" || w[2].Index != 3 {
+		t.Fatalf("hierarchy = %+v", w)
+	}
+	if procs.scans != 0 || len(o.Trace("terminal.list", "terminal.send", "terminal.close")) != 0 {
+		t.Fatal("reading workspace containers inspected or changed agents")
+	}
+}
+
 func TestWorkspacesListHerdrCoreEmptySpaces(t *testing.T) {
 	n, f, hc, _ := hcNode(t)
 	hc.doc = map[string]any{"spaces": []any{

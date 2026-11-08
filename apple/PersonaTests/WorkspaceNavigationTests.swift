@@ -1,0 +1,53 @@
+import Foundation
+import Testing
+@testable import Persona
+
+struct WorkspaceNavigationTests {
+    private func workspace(_ id: String, parent: String? = nil, group: String = "") -> HostWorkspace {
+        HostWorkspace(machineID: "m", source: "orca", sourceID: id, title: id, cwd: "/work/shared", parentSourceID: parent, group: group)
+    }
+
+    private func session(kind: String = "codex_app", space: String = "provider-project", group: String = "") throws -> Session {
+        var s = try JSON.decoder.decode(Session.self, from: Data("""
+        {"machine_id":"m","session_id":"old","title":"Prior work","cwd":"/work/shared","status":"offline","state":"offline",
+         "space_kind":"\(kind)","space_id":"\(space)","capabilities":{"read":true,"send":false}}
+        """.utf8))
+        s.group = group
+        return s
+    }
+
+    @Test func oldProviderHistoryIsVisibleOnlyInAnUnambiguousWorkspace() throws {
+        let w = workspace("chosen"), s = try session()
+        #expect(w.contains(s, catalog: [w]))
+        #expect(!w.contains(s, catalog: [w, workspace("same-directory")]))
+        #expect(!w.contains(s, catalog: []), "an incomplete catalog cannot assign provider history by directory")
+        #expect(!workspace("chosen", group: "other").contains(s, catalog: [w]))
+        #expect(!w.contains(try session(kind: "herdr"), catalog: [w]))
+    }
+
+    @Test func explicitWorkspaceIdentityWinsOverItsDirectory() throws {
+        let a = workspace("a"), b = workspace("b")
+        let s = try session(kind: "orca", space: "b")
+        #expect(!a.contains(s, catalog: [a, b]))
+        #expect(b.contains(s, catalog: [a, b]))
+        #expect(b.preset.workspaceID == "b")
+        #expect(b.preset.machineID == "m")
+    }
+
+    @Test func parentSelectionIsIndependentOfTheCodeSource() {
+        #expect(WorktreeForm.body(workspaceID: "code", kind: "orca", parentWorkspaceID: "folder") ==
+                ["workspace_id": "code", "kind": "orca", "parent_workspace_id": "folder"])
+        let root = workspace("root"), child = workspace("child", parent: "root")
+        #expect(child.breadcrumb(in: [root, child]) == "root › child")
+        #expect(child.breadcrumb(in: [workspace("root", group: "other"), child]) == "child")
+    }
+
+    @Test func creationUsesTheAcknowledgedParentAcrossMixedHubAndNodeVersions() throws {
+        let legacy = try JSON.decoder.decode(WorktreeCreated.self, from: Data(#"{"workspace_id":"new","path":"/new","branch":"b"}"#.utf8))
+        #expect(legacy.resolvedParent(sourceID: "code") == "code")
+        let acknowledged = try JSON.decoder.decode(WorktreeCreated.self, from: Data(#"{"workspace_id":"new","path":"/new","branch":"b","parent_workspace_id":"folder"}"#.utf8))
+        #expect(acknowledged.resolvedParent(sourceID: "code") == "folder")
+    }
+
+
+}

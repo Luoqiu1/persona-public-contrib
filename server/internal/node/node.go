@@ -526,6 +526,8 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 		Configured     bool            `json:"configured"` // launchers.models, .probe, .http, .model.check: hub.json names this launcher
 		Guest          *guestParams    `json:"guest"`      // assistant.send: a new guest conversation (assistant_guest.go)
 		Raw            json.RawMessage `json:"-"`
+
+		ParentWorkspaceID string `json:"parent_workspace_id"` // worktree.create: independent of the Git source
 	}
 	if len(params) > 0 {
 		if err := json.Unmarshal(params, &p); err != nil {
@@ -999,7 +1001,7 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 	case "worktree.prepare": // "New worktree…": what the dialog starts from (worktree.go)
 		return n.worktreePrepare(ctx, p.Kind, p.WorkspaceID, p.Cwd)
 	case "worktree.create": // a Git worktree of a workspace's repository, opened as a workspace (worktree.go)
-		return n.worktreeCreate(ctx, p.Kind, p.WorkspaceID, p.Cwd, p.Branch, p.Path)
+		return n.worktreeCreate(ctx, p.Kind, p.WorkspaceID, p.Cwd, p.Branch, p.Path, p.ParentWorkspaceID)
 	case "worktree.add", "worktree.status", "worktree.remove": // a new agent's own worktree (agentworktree.go, #6115)
 		var a struct {
 			NameHint     string `json:"name_hint"`

@@ -316,7 +316,7 @@ func (h *orcaHost) Spaces(ctx context.Context) ([]host.Space, error) {
 	for _, w := range trees {
 		if w.WorktreeID != "" {
 			out = append(out, host.Space{ID: w.WorktreeID, Label: orcaSpaceLabel(w.Branch, w.Path),
-				Number: len(out) + 1, Cwd: w.Path, Branch: strings.TrimPrefix(w.Branch, "refs/heads/"), ParentID: orcaParent(w.WorktreeID, w.ParentWorktreeID)})
+				Number: len(out) + 1, Cwd: w.Path, Branch: strings.TrimPrefix(w.Branch, "refs/heads/"), ParentID: orcaParent(w.WorktreeID, w.ParentWorktreeID), DisplayName: w.DisplayName})
 		}
 	}
 	return out, nil

@@ -140,7 +140,7 @@ func (n *Node) worktreePrepare(ctx context.Context, kind, workspace, cwd string)
 	if err != nil {
 		return proto.WorktreePrepare{}, err
 	}
-	return proto.WorktreePrepare{Root: repo.root, RepoName: repo.name, Branch: repo.branch, Path: n.worktreesDir(h, repo.name)}, nil
+	return proto.WorktreePrepare{Root: repo.root, RepoName: repo.name, Branch: repo.branch, Path: n.worktreesDir(h, repo.name), ChooseParent: h.Kind() == host.Orca}, nil
 }
 
 // checkBranch accepts a branch name git takes (new or existing), and nothing that git would read as an option or a
@@ -196,7 +196,7 @@ func within(p, dir string) bool {
 }
 
 // worktreeCreate makes the checkout and opens it as a workspace of the host.
-func (n *Node) worktreeCreate(ctx context.Context, kind, workspace, cwd, branch, path string) (proto.WorktreeCreateResult, error) {
+func (n *Node) worktreeCreate(ctx context.Context, kind, workspace, cwd, branch, path string, parents ...string) (proto.WorktreeCreateResult, error) {
 	var res proto.WorktreeCreateResult
 	branch = strings.TrimSpace(branch)
 	h, workspace, repo, err := n.repoOfWorkspace(ctx, kind, workspace, cwd)
@@ -211,7 +211,19 @@ func (n *Node) worktreeCreate(ctx context.Context, kind, workspace, cwd, branch,
 		return res, err
 	}
 	var created *host.Created
-	if w, ok := h.(host.Worktreer); ok && w.CanWorktree() {
+	parent := workspace
+	if len(parents) > 0 && parents[0] != "" {
+		parent = parents[0]
+	}
+	if parent != workspace {
+		w, ok := h.(interface {
+			CreateWorktreeUnder(context.Context, string, string, string, string) (*host.Created, error)
+		})
+		if !ok {
+			return res, errors.New("This terminal host cannot choose a different parent workspace")
+		}
+		created, err = w.CreateWorktreeUnder(ctx, workspace, branch, dest, parent)
+	} else if w, ok := h.(host.Worktreer); ok && w.CanWorktree() {
 		created, err = w.CreateWorktree(ctx, workspace, branch, dest)
 	} else {
 		created, err = n.worktreeByGit(ctx, h, repo, branch, dest)
@@ -221,6 +233,9 @@ func (n *Node) worktreeCreate(ctx context.Context, kind, workspace, cwd, branch,
 	}
 	_ = n.refreshHosts(ctx, h) // the new workspace is in the layout the terminal page lists
 	res = proto.WorktreeCreateResult{WorkspaceID: created.SpaceID, TabID: created.SlotID, Path: dest, Branch: branch}
+	if h.Kind() == host.Orca {
+		res.ParentWorkspaceID = parent
+	}
 	if created.Path != "" {
 		res.Path = created.Path
 	}

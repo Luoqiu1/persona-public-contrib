@@ -527,6 +527,7 @@ struct ChatsView: View {
 
 /// The Agents list itself: what follows the hub's pushes (`ChatsView` holds the navigation and the toolbar).
 private struct AgentsList: View {
+    @State private var workspaceCatalog = WorkspaceCatalog()
     #if os(macOS)
     static let emptyMessage = String(localized: "Start an agent on any of your computers, then follow it live and take over here.")
     #else
@@ -773,7 +774,12 @@ private struct AgentsList: View {
         // Agents on more than one machine: By Repository and By Project split the list by machine first (#2108), and the headers under
         // a machine do not name it. Counted before the quick filter: choosing one does not add or take away headings.
         let byHost = machineFilter.isEmpty && Set(base.lazy.filter { $0.state.isLive }.map(\.machineRef)).count > 1
-        let built = grouping == .repo ? RepoTree.build(unpinned.filter { $0.state.isLive }, machines: machines.map(\.ref)) : []
+        let catalog = workspaceCatalog.workspaces.filter { w in
+            machines.contains { $0.ref == w.machineRef } && (machineFilter.isEmpty || w.machineID == machineFilter)
+                && (hubFilter.isEmpty || w.group == hubFilter)
+        }
+        let built = grouping == .repo ? RepoTree.build(unpinned.filter { $0.state.isLive }, machines: machines.map(\.ref),
+                                                       workspaces: catalog, includeEmpty: quick == .all, search: query) : []
         let _ = built.forEach { host in
             for repo in host.repos { lookup.scopes[repo.id] = repoScope(repo) }
         }
@@ -1084,6 +1090,7 @@ private struct AgentsList: View {
         // Whether each machine's herdr runs, while the list is in sight (a modifier of its own: in this chain the
         // compiler ran out of time type-checking it).
         .modifier(HerdrPolling(watch: herdr, key: HerdrWatch.key(machines), covered: covered))
+        .modifier(WorkspaceCatalogPolling(catalog: workspaceCatalog, enabled: grouping == .repo, covered: covered))
         #if DEBUG
         // `-openQuietSpaces YES` (with `-tab dev`): every quiet space opened, for screenshots (`-dev.folded` folds spaces).
         .task(id: quiet.map(\.id)) { if UserDefaults.standard.bool(forKey: "openQuietSpaces") { expandedQuiet.formUnion(quiet.map(\.id)) } }
@@ -1509,7 +1516,7 @@ private struct AgentsList: View {
 
     /// Nothing going on in it: every agent idle (none pinned, looping or with work in the background). Under a quick
     /// filter nothing is quiet: every repository it leaves is listed.
-    private func isQuiet(_ r: RepoTree.Repo) -> Bool { quick == .all && r.sessions.allSatisfy { !stays($0) } }
+    private func isQuiet(_ r: RepoTree.Repo) -> Bool { !r.structured && quick == .all && r.sessions.allSatisfy { !stays($0) } }
 
     /// By Repository (#2108): the machines when there is more than one, each machine's repositories by name with their working
     /// trees in their card, as Orca's projects; repositories with nothing going on fold into the machine's Idle Repositories.
@@ -1626,9 +1633,33 @@ private struct AgentsList: View {
 
     /// A working tree in its repository's card: its row and agents (`worktreeRow`), then the spaces nested under it
     /// behind one「N 个子项」row.
+    private struct WorkspaceRowEntry: Identifiable {
+        var workspace: RepoTree.Worktree
+        var depth: Int
+        var toggle: Bool
+        var id: String { workspace.id + (toggle ? "/children-toggle" : "") }
+    }
+
+    /// Flatten only visible branches for SwiftUI's List; the model retains every parent/child edge.
+    private func workspaceRows(_ root: RepoTree.Worktree) -> [WorkspaceRowEntry] {
+        var out: [WorkspaceRowEntry] = []
+        func visit(_ w: RepoTree.Worktree, depth: Int) {
+            out.append(WorkspaceRowEntry(workspace: w, depth: depth, toggle: false))
+            guard worktreeFold(w).open, !w.children.isEmpty else { return }
+            out.append(WorkspaceRowEntry(workspace: w, depth: depth + 1, toggle: true))
+            if !isFolded(w.childrenFoldID) {
+                for child in w.children { visit(child, depth: depth + 1) }
+            }
+        }
+        visit(root, depth: 0)
+        return out
+    }
+
     @ViewBuilder private func worktreeRows(_ w: RepoTree.Worktree) -> some View {
-        worktreeRow(w, depth: 0)
-        if !w.children.isEmpty && worktreeFold(w).open { childWorktreeRows(w) }
+        ForEach(workspaceRows(w)) { row in
+            if row.toggle { childWorktreeRows(row.workspace, depth: row.depth) }
+            else { worktreeRow(row.workspace, depth: row.depth) }
+        }
     }
 
     /// Whether a working tree has nothing going on (its children included: it then folds as a quiet space does, not
@@ -1643,24 +1674,39 @@ private struct AgentsList: View {
     /// a busy one folds from its row, remembered.
     @ViewBuilder private func worktreeRow(_ w: RepoTree.Worktree, depth: Int) -> some View {
         let (quiet, open) = worktreeFold(w)
-        Button {
-            if quiet {
-                Haptics.tap()
-                withAnimation(Theme.Motion.standard) {
-                    if open { expandedQuiet.remove(w.id) } else { expandedQuiet.insert(w.id) }
+        Group {
+            if let workspace = w.workspace {
+                HStack(spacing: Theme.Space.s) {
+                    Button { openFromList(workspace) } label: {
+                        WorktreeRow(name: w.name, main: w.main, count: w.sessions.count, quiet: false, open: open, showChevron: false)
+                            .scaledFrame(minHeight: Theme.Size.wellXS)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("agents.worktree")
+                    if !w.sessions.isEmpty || !w.children.isEmpty {
+                        Button { toggleWorktree(w) } label: {
+                            FoldChevron(folded: !open)
+                                .scaledFrame(width: Theme.Size.wellXS, height: Theme.Size.wellXS)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: "workspace.toggle", defaultValue: "Expand or collapse workspace"))
+                        .accessibilityIdentifier("agents.foldWorkspace")
+                    }
                 }
-            } else {
-                toggleFold(w.id)
-            }
-        } label: {
-            WorktreeRow(name: w.name, main: w.main, count: w.sessions.count, quiet: quiet, open: open)
                 .padding(.leading, nested(depth))
+            } else {
+                Button { toggleWorktree(w) } label: {
+                    WorktreeRow(name: w.name, main: w.main, count: w.sessions.count, quiet: quiet, open: open)
+                        .padding(.leading, nested(depth))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("agents.worktree")
+            }
         }
-        .buttonStyle(.plain)
         .listRowInsets(compact ? CompactList.rowInsets(level: depth) : capsules ? Self.tabCapsuleInsets(level: depth) : nil)
         .listRowBackground(capsules ? Color.clear : nil)
         .listRowSeparator(capsules ? .hidden : .automatic)
-        .accessibilityIdentifier("agents.worktree")
         if open {
             if quiet {
                 ForEach(TabPanes.entries(ordered(w.sessions))) { e in entryRows(e, depth: depth + 1) }
@@ -1668,6 +1714,16 @@ private struct AgentsList: View {
                 agentRows(w.sessions, key: w.id, depth: depth + 1)
             }
         }
+    }
+
+    private func toggleWorktree(_ w: RepoTree.Worktree) {
+        let (quiet, open) = worktreeFold(w)
+        if quiet {
+            Haptics.tap()
+            withAnimation(Theme.Motion.standard) {
+                if open { expandedQuiet.remove(w.id) } else { expandedQuiet.insert(w.id) }
+            }
+        } else { toggleFold(w.id) }
     }
 
     // MARK: Recently active
@@ -1685,24 +1741,21 @@ private struct AgentsList: View {
     /// The spaces nested under a working tree (Orca's child worktrees, #3075): one「N 个子项」row a level in, with the
     /// state counts of everything under it, folded until opened (remembered); open, each nested space as a working tree
     /// a level in.
-    @ViewBuilder private func childWorktreeRows(_ w: RepoTree.Worktree) -> some View {
+    @ViewBuilder private func childWorktreeRows(_ w: RepoTree.Worktree, depth: Int) -> some View {
         let id = w.childrenFoldID
         let open = !isFolded(id)
-        let below = w.children.flatMap(\.sessions)
+        let below = w.children.flatMap(\.treeSessions)
         Button { toggleFold(id) } label: {
             ChildSpacesRow(count: w.children.count, open: open,
                            group: SpaceGroup(id: id, machineID: below.first?.machineID ?? "", spaceID: "-", name: w.name, index: 0, sessions: below))
-                .padding(.leading, nested(1))
+                .padding(.leading, nested(depth))
         }
         .buttonStyle(.plain)
         .modifier(FoldAnchor(id: id, reader: feed.reader))
-        .listRowInsets(compact ? CompactList.rowInsets(level: 1) : capsules ? Self.tabCapsuleInsets(level: 1) : nil)
+        .listRowInsets(compact ? CompactList.rowInsets(level: depth) : capsules ? Self.tabCapsuleInsets(level: depth) : nil)
         .listRowBackground(capsules ? Color.clear : nil)
         .listRowSeparator(capsules ? .hidden : .automatic)
         .accessibilityIdentifier("agents.childSpaces")
-        if open {
-            ForEach(w.children) { c in worktreeRow(c, depth: 1) }
-        }
     }
 
     // MARK: By state / by machine
@@ -3447,6 +3500,7 @@ private struct AgentsDestinations: ViewModifier {
         content
             .navigationDestination(for: SessionKey.self) { key in ChatView(key: key).id(key).splitDetailPage(ownsBack: true) }
             .navigationDestination(for: SpaceRoute.self) { r in SpaceView(spaceKey: r.id).splitDetailPage() }
+            .navigationDestination(for: HostWorkspace.self) { w in HostWorkspaceView(workspace: w).id(w.key).splitDetailPage() }
             .navigationDestination(for: MachineRoute.self) { r in MachineSpacesView(ref: r.ref).splitDetailPage() }
             .navigationDestination(for: MachineListRoute.self) { _ in MachinesView().splitDetailPage() }
             .navigationDestination(for: MachineDetailRoute.self) { r in MachineDetailView(ref: r.ref).splitDetailPage() }

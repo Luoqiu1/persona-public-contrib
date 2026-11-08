@@ -31,6 +31,7 @@ struct WorktreeRow: View {
     var count: Int
     var quiet: Bool
     var open: Bool
+    var showChevron = true
     @Environment(\.compactList) private var compact
 
     var body: some View {
@@ -49,14 +50,14 @@ struct WorktreeRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize()
-            FoldChevron(folded: !open)
+            if showChevron { FoldChevron(folded: !open) }
         }
         .padding(.vertical, compact ? 0 : Theme.Space.xxs)
         .contentShape(.rect)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([main ? String(localized: "Main worktree") : String(localized: "Worktree"), name,
                              quiet ? String(localized: "Idle") : String(localized: "\(count) agents"),
-                             open ? String(localized: "Expanded") : String(localized: "Collapsed [Readiness Card ee6046]")]
+                             showChevron ? (open ? String(localized: "Expanded") : String(localized: "Collapsed [Readiness Card ee6046]")) : ""].filter { !$0.isEmpty }
             .joined(separator: String(localized: ", ", comment: "Separator between parts of an accessibility label")))
         .accessibilityAddTraits(.isButton)
     }

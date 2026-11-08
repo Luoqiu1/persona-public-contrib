@@ -34,6 +34,11 @@ var orcaWorktreeTerminalWait = 5 * time.Second
 // one too), gets a "-2" branch and folder instead (Orca 1.4.250). So both are refused here before Orca is asked, and
 // an answer on another branch (taken meanwhile, or a folder setting of Orca's own that is taken) is an error.
 func (h *orcaHost) CreateWorktree(ctx context.Context, space, branch, path string) (*host.Created, error) {
+	return h.CreateWorktreeUnder(ctx, space, branch, path, space)
+}
+
+// CreateWorktreeUnder keeps the Git source separate from the sidebar parent, which can belong to another project.
+func (h *orcaHost) CreateWorktreeUnder(ctx context.Context, space, branch, path, parent string) (*host.Created, error) {
 	trees, _, _, err := h.c.Worktrees(ctx, "")
 	if err != nil {
 		return nil, orcaErr(err)
@@ -48,6 +53,16 @@ func (h *orcaHost) CreateWorktree(ctx context.Context, space, branch, path strin
 	if src == nil {
 		return nil, errors.New("Orca 里找不到这个工作区")
 	}
+	parentFound := false
+	for _, w := range trees {
+		if w.WorktreeID == parent && (w.HostID == "" || w.HostID == "local") {
+			parentFound = true
+			break
+		}
+	}
+	if !parentFound {
+		return nil, errors.New("The parent workspace is no longer available in Orca")
+	}
 	repoID, _, ok := strings.Cut(space, "::") // Orca's worktree ids are <repo id>::<path>
 	if !ok || repoID == "" {
 		return nil, errors.New("不知道这个工作区属于 Orca 的哪个项目")
@@ -60,7 +75,7 @@ func (h *orcaHost) CreateWorktree(ctx context.Context, space, branch, path strin
 	if _, err := os.Lstat(path); err == nil {
 		return nil, errors.New("检出路径已存在：Orca 不用已有的目录（空目录也不行）")
 	}
-	req := orcart.WorktreeCreate{Repo: "id:" + repoID, Name: filepath.Base(path), Branch: branch, Parent: "id:" + space}
+	req := orcart.WorktreeCreate{Repo: "id:" + repoID, Name: filepath.Base(path), Branch: branch, Parent: "id:" + parent}
 	if _, err := git(ctx, src.Path, "show-ref", "--verify", "--quiet", "refs/heads/"+branch); err != nil {
 		base, err := git(ctx, src.Path, "branch", "--show-current")
 		if base = strings.TrimSpace(base); err != nil || base == "" {

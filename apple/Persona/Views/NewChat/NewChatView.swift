@@ -2,7 +2,7 @@ import PersonaKit
 import SwiftUI
 
 /// Start a session inside an existing space (a new herdr tab next to the other agents).
-struct SpacePreset {
+nonisolated struct SpacePreset {
     /// The machine id, or "group|id" for another group of hubs (`MachineRef.path`).
     var machineID: String
     var cwd: String
@@ -54,11 +54,18 @@ struct NewChatView: View {
     @State private var purposeGroup: String?
     @State private var starting = false
     @State private var error: String?
+    @State private var workspaceCatalog = WorkspaceCatalog()
+    @State private var pickedWorkspace: HostWorkspace?
+    @State private var childSource: HostWorkspace?
     @FocusState private var promptFocused: Bool
 
     /// `machineID` is what is remembered: the machine id, "group|id" for another group of hubs (`MachineRef.path`).
     private var ref: MachineRef { MachineRef(path: machineID) }
     private var machine: Machine? { model.machine(ref) }
+    private var targetPreset: SpacePreset? { preset ?? pickedWorkspace?.preset }
+    private var workspaceChoices: [HostWorkspace] {
+        workspaceCatalog.workspaces.filter { $0.machineRef == ref && $0.source == "orca" }
+    }
 
     /// The launcher that will run: the one picked, or Model Settings'.
     private var runLauncher: String { launcher.isEmpty && unifiedModels ? defaultLauncher : launcher }
@@ -135,7 +142,7 @@ struct NewChatView: View {
                         Label(preset.spaceName, systemImage: Theme.Icon.spaceFilled)
                         Text(Fmt.path(preset.cwd, home: machine?.home)).font(Theme.Font.code).foregroundStyle(.secondary)
                     } header: { Text("Join Space") } footer: {
-                        Text("Opens a new tab in this herdr workspace on \(machine?.name ?? "").")
+                        Text(String(localized: "workspace.joinHelp", defaultValue: "Opens a new tab in the selected workspace."))
                     }
                 } else {
                 Section {
@@ -148,6 +155,27 @@ struct NewChatView: View {
                     .listRowInsets(EdgeInsets(top: Theme.Space.s, leading: Theme.Space.page, bottom: Theme.Space.s, trailing: Theme.Space.page))
                 } header: { Text("Machines") }
 
+                if !workspaceChoices.isEmpty {
+                    Section {
+                        NavigationLink {
+                            WorkspacePicker(workspaces: workspaceChoices, selectedID: pickedWorkspace?.sourceID, allowDirectory: true) { picked in
+                                pickedWorkspace = picked
+                                if let picked { cwd = picked.cwd }
+                            }
+                        } label: {
+                            LabeledContent(String(localized: "workspace.target", defaultValue: "Workspace"),
+                                           value: pickedWorkspace?.title ?? String(localized: "workspace.useDirectory", defaultValue: "Choose by Folder"))
+                        }
+                        .accessibilityIdentifier("newChat.workspace")
+                        if let pickedWorkspace {
+                            Button { childSource = pickedWorkspace } label: {
+                                Label(String(localized: "workspace.newChild", defaultValue: "New Child Workspace…"), systemImage: Theme.Icon.newWorktree)
+                            }
+                            .accessibilityIdentifier("newChat.newChild")
+                        }
+                    }
+                }
+                if pickedWorkspace == nil {
                 Section {
                     NavigationLink {
                         DirectoryBrowser(ref: ref, start: cwd.isEmpty ? "" : cwd) { picked in cwd = picked }
@@ -184,6 +212,7 @@ struct NewChatView: View {
                         }
                     }
                 } header: { Text("Folder [Task Views 52daa7]") }
+                }
                 }
 
                 Section {
@@ -248,7 +277,7 @@ struct NewChatView: View {
                         .submitLabel(.done)
                         .accessibilityIdentifier("newChat.tabName")
                 } header: { Text("Tab Name (Optional)") } footer: {
-                    Text("The tab's name in herdr. If left empty, a short English name is made from the first message (like fix-login); with no first message it's agent-1, agent-2…")
+                    Text(String(localized: "workspace.tabNameHelp", defaultValue: "Optional name for the new session tab. If empty, it is named from the first message."))
                 }
 
             }
@@ -304,6 +333,7 @@ struct NewChatView: View {
                 .padding(.bottom, Theme.Space.s)
             }
             .task(id: machineID) { await loadMachine() }
+            .task(id: machineID) { await workspaceCatalog.refresh([ref.group]) { model.api($0) } }
             .task(id: "\(machineID)|\(runLauncher)|\(machine?.online == true)|\(defaultsFor)") { await loadModels() }
             .onChange(of: effortOptions.map(\.id)) { _, ids in
                 if !effort.isEmpty, !ids.contains(effort) { effort = "" } // the picked model does not take it
@@ -314,6 +344,15 @@ struct NewChatView: View {
             }
             .onChange(of: model.machines) { _, _ in if preset == nil { pickDefaultMachine() } }
             .interactiveDismissDisabled(starting)
+        }
+        .sheet(item: $childSource) { source in
+            NewWorktreeSheet(group: SpaceGroup(id: source.key, machineID: source.machineID, spaceID: source.sourceID, group: source.group,
+                                              name: source.title, index: source.index ?? 0, sessions: []), workspace: source) { made in
+                pickedWorkspace = HostWorkspace(machineID: source.machineID, source: source.source, sourceID: made.workspaceID,
+                                                title: made.branch, cwd: made.path, parentSourceID: made.parentWorkspaceID, group: source.group)
+                cwd = made.path
+                childSource = nil
+            }
         }
         #if os(macOS)
         // On the stack, not its root: with the minimum size on the form, pushing Launcher / Folder shrank a sheet opened
@@ -426,7 +465,7 @@ struct NewChatView: View {
                 effort = UserDefaults.standard.string(forKey: "effort.\(machineID)") ?? ""
                 if unifiedModels { launcher = ""; effort = "" }
                 else if let saved, ls.contains(where: { $0.name == saved }) { launcher = saved }
-                if let preset { cwd = preset.cwd } else {
+                if let preset = targetPreset { cwd = preset.cwd } else {
                     cwd = UserDefaults.standard.string(forKey: "cwd.\(machineID)") ?? recent.first?.path ?? ""
                 }
             }
@@ -444,6 +483,7 @@ struct NewChatView: View {
     /// saved defaults (applied again for the next machine), and its hub's New Agent model when the new machine is in
     /// another group of hubs.
     private func forgetLastMachine() {
+        pickedWorkspace = nil
         recent = []
         launchers = []
         launcher = ""
@@ -553,7 +593,7 @@ struct NewChatView: View {
                 // Codex picks its thread's id once it has the first message: it goes with the start, which answers
                 // with that thread (one session, already working on it).
                 let s = try await api.start(.init(machineID: ref.id, cwd: cwd, launcher: launcher, prompt: contextBlock == nil ? prompt : outgoing,
-                                                  workspaceID: preset?.workspaceID, model: modelChoice?.sent, tabName: name.isEmpty ? nil : name,
+                                                  workspaceID: targetPreset?.workspaceID, model: modelChoice?.sent, tabName: name.isEmpty ? nil : name,
                                                   nameHint: nameHint ?? (p.isEmpty ? nil : p), todoID: todoID))
                 UserDefaults.standard.set(launcher, forKey: "launcher.\(machineID)")
                 UserDefaults.standard.set(cwd, forKey: "cwd.\(machineID)")
@@ -565,7 +605,7 @@ struct NewChatView: View {
             // The hub answers at once and starts claude in the background; the first message goes out as an ordinary
             // message (on screen right away, typed in once claude is ready).
             let s = try await api.start(.init(machineID: ref.id, cwd: cwd, launcher: launcher, prompt: nil,
-                                              workspaceID: preset?.workspaceID, permissionMode: mode.isEmpty ? nil : mode,
+                                              workspaceID: targetPreset?.workspaceID, permissionMode: mode.isEmpty ? nil : mode,
                                               effort: effort.isEmpty ? nil : effort, model: modelChoice?.sent, tabName: name.isEmpty ? nil : name,
                                               async: true, nameHint: nameHint ?? (p.isEmpty ? nil : p), todoID: todoID))
             if !unifiedModels {

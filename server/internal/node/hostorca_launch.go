@@ -57,13 +57,13 @@ func (h *orcaHost) createTerminal(ctx context.Context, space, cwd, label string)
 }
 
 // resolveWorktree locates the best-matching local Orca worktree for cwd.
-// If space is non-empty, it acts as a hint. If cwd is inside an existing worktree (including subdirectories),
+// A non-empty space is an explicit target and must contain cwd. Without one, if cwd is inside a worktree (including subdirectories),
 // it chooses the deepest enclosing worktree.
 // If not found in any existing worktree, it checks whether cwd can be safely registered via repo.add (if git repo).
 func (h *orcaHost) resolveWorktree(ctx context.Context, trees []orcart.Worktree, spaceHint, cwd string) (*orcart.Worktree, error) {
 	path := orcaLaunchPath(cwd)
 
-	// 1. If spaceHint is given, verify whether it matches and contains path.
+	// 1. An explicit selection never silently falls back to a different workspace.
 	if spaceHint != "" {
 		for i := range trees {
 			w := &trees[i]
@@ -77,6 +77,7 @@ func (h *orcaHost) resolveWorktree(ctx context.Context, trees []orcart.Worktree,
 				}
 			}
 		}
+		return nil, host.Mark(refusal("orca_workspace_unavailable", "The selected Orca workspace is unavailable or does not contain this directory", nil), host.ErrNotDelivered)
 	}
 
 	// 2. Search all local worktrees for the deepest enclosing worktree.

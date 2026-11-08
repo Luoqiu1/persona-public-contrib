@@ -147,9 +147,9 @@ struct AgentRepoTreeTests {
         #expect(repo.worktrees.count == 1)
         let main = repo.worktrees[0]
         #expect(main.sessions.map(\.sessionID) == ["p"])
-        #expect(main.children.map(\.name) == ["w-refresh", "w-docs", "w-metrics"], "depth first, by the host's order")
-        #expect(main.children.map(\.id) == ["tree/space/machine-a/orca:w-refresh", "tree/space/machine-a/orca:w-docs",
-                                            "tree/space/machine-a/orca:w-metrics"])
+        #expect(main.children.map(\.name) == ["w-refresh", "w-metrics"], "only direct children, in host order")
+        #expect(main.children[0].children.map(\.name) == ["w-docs"])
+        #expect(main.children.map(\.id) == ["tree/space/machine-a/orca:w-refresh", "tree/space/machine-a/orca:w-metrics"])
         #expect(main.childrenFoldID == "tree/machine-a//code/app" + RepoTree.childFoldSuffix)
         #expect(repo.sessions.map(\.sessionID).sorted() == ["c1", "c2", "g1", "p"])
         #expect(main.treeSessions.count == 4)
@@ -186,4 +186,69 @@ struct AgentRepoTreeTests {
         #expect(DevGrouping.resolved(.standard, supportsTodos: false) == .repo)
         #expect(DevGrouping.offered(supportsTodos: false).first == .repo)
     }
+    private func workspace(_ id: String, parent: String? = nil, machine: String = "machine-a", group: String = "",
+                           path: String? = nil) -> HostWorkspace {
+        HostWorkspace(machineID: machine, source: "orca", sourceID: id, title: id, cwd: path ?? "/work/" + id,
+                      parentSourceID: parent, index: 1, group: group)
+    }
+
+    @Test func catalogRetainsExistingEmptyAncestorsAndIndependentEmptyWorkspaces() throws {
+        let catalog = [workspace("root"), workspace("child", parent: "root"), workspace("leaf", parent: "child"), workspace("empty")]
+        let tree = RepoTree.build([orca("agent", "/work/leaf", space: "leaf")], machines: machines, workspaces: catalog)
+        let repos = try #require(tree.first?.repos)
+        #expect(repos.map(\.name) == ["empty", "root"])
+        let root = try #require(repos.first { $0.name == "root" }?.worktrees.first)
+        #expect(root.sessions.isEmpty)
+        #expect(root.children[0].sessions.isEmpty)
+        #expect(root.children[0].children[0].sessions.map(\.sessionID) == ["agent"])
+        #expect(root.treeSessions.count == 1)
+        #expect(!repos[0].flat, "an empty real workspace keeps its container row")
+    }
+
+    @Test func catalogSearchAndStateFiltersKeepOnlyMatchingAncestorPaths() {
+        let catalog = [workspace("root"), workspace("middle", parent: "root"), workspace("leaf", parent: "middle"), workspace("unrelated")]
+        let session = orca("agent", "/work/leaf", space: "leaf")
+        let tree = RepoTree.build([session], machines: machines, workspaces: catalog, includeEmpty: false, search: "agent")
+        #expect(tree[0].repos.map(\.name) == ["root"])
+        #expect(tree[0].repos[0].worktrees[0].children[0].children[0].sessions.count == 1)
+        #expect(RepoTree.build([], machines: machines, workspaces: catalog, includeEmpty: false).isEmpty)
+        #expect(RepoTree.build([], machines: machines, workspaces: catalog, includeEmpty: false, search: "leaf").isEmpty)
+        let byName = RepoTree.build([], machines: machines, workspaces: catalog, search: "leaf")
+        #expect(byName[0].repos.map(\.name) == ["root"])
+        #expect(byName[0].repos[0].worktrees[0].children[0].children[0].name == "leaf")
+    }
+
+    @Test func catalogIdentityIsNotTheDirectoryAndParentsNeverCrossMachineOrHub() {
+        let catalog = [workspace("root", path: "/same"), workspace("other", path: "/same"),
+                       workspace("child", parent: "root", machine: "machine-b"),
+                       workspace("work-child", parent: "root", group: "work")]
+        let tree = RepoTree.build([], machines: machines, workspaces: catalog)
+        #expect(tree.flatMap(\.repos).count == 4)
+        #expect(Set(tree.flatMap(\.repos).map(\.id)).count == 4)
+        #expect(tree.flatMap(\.repos).flatMap(\.worktrees).allSatisfy { $0.children.isEmpty })
+    }
+
+    @Test func catalogCyclesSelfParentsAndMissingParentsStayVisible() {
+        let catalog = [workspace("a", parent: "b"), workspace("b", parent: "a"), workspace("self", parent: "self"),
+                       workspace("orphan", parent: "gone")]
+        let repos = RepoTree.build([], machines: machines, workspaces: catalog).flatMap(\.repos)
+        #expect(repos.count == 4)
+        #expect(repos.flatMap(\.worktrees).allSatisfy { $0.children.isEmpty })
+    }
+
+    @Test func oldCatalogWithoutParentMetadataUsesSessionLineage() {
+        var child = workspace("child")
+        child.index = nil
+        let tree = RepoTree.build([orca("c", "/work/child", space: "child", parent: "root")],
+                                  machines: machines, workspaces: [workspace("root"), child])
+        #expect(tree[0].repos.count == 1)
+        #expect(tree[0].repos[0].worktrees[0].children[0].sessions.count == 1)
+    }
+
+
+
+
+
+
+
 }

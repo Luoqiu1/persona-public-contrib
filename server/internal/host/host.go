@@ -390,6 +390,8 @@ type Space struct {
 	Branch string
 	// ParentID is the space this one is nested under in the host (Orca: a child worktree's parent); empty at the top.
 	ParentID string
+	// DisplayName is the host's user-visible title; Label retains its existing session/pin identity.
+	DisplayName string
 }
 
 // Slot holds panes inside a space (herdr: a tab).

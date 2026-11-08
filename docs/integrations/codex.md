@@ -394,3 +394,7 @@ Read codex-rs source tags `rust-v0.153.4` / `rust-v0.163.0`, plus binaries for b
     "allow with rewritten input", not a plain allow. An inferred workaround is to use the phone answer as a denial reason, which the model reads as tool output, but the question never appears in the terminal. `notify` has only `agent-turn-complete`.
 - **Conclusion**: `PermissionRequest` can handle approvals in both versions, in-process and on the daemon. But it is mutually exclusive with "the computer user can answer first." This implementation therefore uses screen-reading cards,
   allowing either computer or phone to answer first. After B is implemented, both can answer without this hook. Before then, if fast phone answers matter more, reevaluate it as an optional short-timeout path.
+
+### Orca hook ownership when starting Codex
+
+A new local Codex launched inside Orca must keep that terminal’s hook environment. A shared Codex app-server daemon can retain a previously launched terminal’s Orca identity, attributing a new conversation and first-work naming to the wrong worktree. The phone-start helper probes the executable in the new terminal and adds `--no-daemon` when supported. It preserves explicit remote connections, already isolated launchers and older CLIs without that flag. Other terminal engines keep their existing launch behavior.

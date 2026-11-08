@@ -39,7 +39,7 @@ import Testing
                     .selectionDisabled()
                     WorkspaceSidebarCard(workspace: tree, project: "app", selectedSession: nil,
                                          selectedWorkspace: route.workspace, folded: { _ in false }, toggle: { _ in },
-                                         open: route.open, newChild: { _ in }, ordered: { $0 }) { _ in EmptyView() }
+                                         open: route.open, ordered: { $0 }) { _ in EmptyView() } actions: { _, _ in Button("Create Child") {} }
                         .selectionDisabled()
                 }
                 .padding(.vertical, 60)

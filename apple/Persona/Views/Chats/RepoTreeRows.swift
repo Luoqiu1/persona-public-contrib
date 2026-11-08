@@ -49,7 +49,7 @@ struct WorkspaceSidebarStatus: View {
 }
 
 /// A card owns its descendants so selection washes and indentation follow the same geometry at every level.
-struct WorkspaceSidebarCard<AgentContent: View>: View {
+struct WorkspaceSidebarCard<AgentContent: View, Actions: View>: View {
     var workspace: RepoTree.Worktree
     var project: String
     var selectedSession: SessionKey?
@@ -57,9 +57,12 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
     var folded: (String) -> Bool
     var toggle: (String) -> Void
     var open: (HostWorkspace) -> Void
-    var newChild: (HostWorkspace) -> Void
+    var openAgent: (SessionKey) -> Void = { _ in }
+    var appeared: (Session) -> Void = { _ in }
+    var agentIdentifier = "agents.row"
     var ordered: ([Session]) -> [Session]
     @ViewBuilder var agent: (Session) -> AgentContent
+    @ViewBuilder var actions: (RepoTree.Worktree, Session?) -> Actions
     @State private var hovered = false
 
     private var active: Bool {
@@ -95,7 +98,7 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
-            } actions: { workspaceActions }
+            } actions: { actions(workspace, nil) }
             .accessibilityIdentifier("agents.worktree")
             .accessibilityLabel(workspace.name)
             .accessibilityValue([workspace.main ? String(localized: "workspace.primary", defaultValue: "Primary") : "",
@@ -104,9 +107,9 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     if workspace.sessions.count > 1 {
                         agentDisclosure
-                        if agentOpen { ForEach(ordered(workspace.sessions)) { agent($0) } }
+                        if agentOpen { ForEach(ordered(workspace.sessions)) { agentRow($0) } }
                     } else {
-                        ForEach(workspace.sessions) { agent($0) }
+                        ForEach(workspace.sessions) { agentRow($0) }
                     }
                     if !workspace.children.isEmpty {
                         Button { toggle(workspace.childrenFoldID) } label: {
@@ -122,7 +125,8 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                     ForEach(workspace.children) { child in
                         WorkspaceSidebarCard(workspace: child, project: project, selectedSession: selectedSession,
                                              selectedWorkspace: selectedWorkspace, folded: folded, toggle: toggle,
-                                             open: open, newChild: newChild, ordered: ordered, agent: agent)
+                                             open: open, openAgent: openAgent, appeared: appeared, agentIdentifier: agentIdentifier,
+                                             ordered: ordered, agent: agent, actions: actions)
                     }
                 }.padding(.leading, Theme.WorkspaceSidebar.childInset)
             }
@@ -139,14 +143,27 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
         .accessibilityElement(children: .contain)
     }
 
-    @ViewBuilder private var workspaceActions: some View {
-        if let target = workspace.workspace {
-            Button { newChild(target) } label: {
-                Label(String(localized: "workspace.newChild", defaultValue: "New Child Workspace…"), systemImage: Theme.Icon.newWorktree)
-            }
-            .disabled(!target.online || !target.available)
-            .accessibilityIdentifier("workspace.newChild")
-        }
+    /// The Agent row and the title/branch control receive their worktree actions from the same factory.
+    private func agentRow(_ session: Session) -> some View {
+        WorkspaceSidebarControl(open: { openAgent(session.key) }) {
+            agent(session)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #if os(macOS)
+                .background {
+                    if selectedWorkspace == nil && selectedSession == session.key {
+                        RoundedRectangle(cornerRadius: Theme.Radius.control).fill(Theme.Fill.macSelected)
+                    }
+                }
+                #endif
+                .contentShape(.rect)
+        } actions: { actions(workspace, session) }
+        .macHoverShade(in: RoundedRectangle(cornerRadius: Theme.Radius.control), outset: 0)
+        #if os(macOS)
+        .macOptionClick { MacShellState.shared.chatWindow = session.key }
+        #endif
+        .accessibilityIdentifier(agentIdentifier)
+        .id(session.id)
+        .onAppear { appeared(session) }
     }
 
     private var metadata: some View {

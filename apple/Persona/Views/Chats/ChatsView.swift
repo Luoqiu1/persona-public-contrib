@@ -530,6 +530,7 @@ private struct AgentsList: View {
     @State private var workspaceCatalog = WorkspaceCatalog()
     @State private var openedWorkspace: String?
     @State private var creatingChild: HostWorkspace?
+    @State private var startingWorktree: HostWorkspace?
     #if os(macOS)
     static let emptyMessage = String(localized: "Start an agent on any of your computers, then follow it live and take over here.")
     #else
@@ -1090,7 +1091,7 @@ private struct AgentsList: View {
 
     private func observedAgentList<Content: View>(_ content: Content, base: [Session], interactions: [Interaction],
                                                  quiet: [SpaceGroup], matching: Set<SessionKey>) -> some View {
-        let list = styledAgentList(content, base: base, interactions: interactions)
+        let decorated = styledAgentList(content, base: base, interactions: interactions)
         .refreshable { await model.sessionLists.reload(); await model.refresh() }
         // Whether each machine's herdr runs, while the list is in sight (a modifier of its own: in this chain the
         // compiler ran out of time type-checking it).
@@ -1105,6 +1106,7 @@ private struct AgentsList: View {
         .confirmClose($closingSession)
         .confirmDeleteSession($deletingSession)
         .nodeActionPrompts()
+        let sheets = decorated
         .sheet(item: $creatingChild) { workspace in
             NewWorktreeSheet(group: workspace.creationGroup, workspace: workspace) { made in
                 creatingChild = nil
@@ -1112,6 +1114,12 @@ private struct AgentsList: View {
                 openedWorkspace = child.key
                 openFromList(child)
                 Task { await workspaceCatalog.refresh(model.groupIDs) { model.api($0) } }
+            }
+        }
+        .sheet(item: $startingWorktree) { workspace in
+            NewChatView(preset: workspace.preset) { session in
+                startingWorktree = nil
+                openFromList(session.key)
             }
         }
         .sheet(item: $linkingSession) { s in
@@ -1123,6 +1131,7 @@ private struct AgentsList: View {
                 TodoLinkAgentSheet(space: TodoItem.Space(machineID: group.machineID, space: space))
             }
         }
+        let list = sheets
         .onChange(of: model.visibleSession) { _, key in if key != nil { openedWorkspace = nil } }
         .onChange(of: path.isEmpty) { _, empty in if empty { openedWorkspace = nil } }
         .task(id: listQuery) {
@@ -1623,9 +1632,11 @@ private struct AgentsList: View {
                         WorkspaceSidebarCard(workspace: w, project: r.name, selectedSession: openedWorkspace == nil ? model.visibleSession : nil,
                                              selectedWorkspace: openedWorkspace, folded: { isFolded($0) }, toggle: { toggleFold($0) },
                                              open: { openedWorkspace = $0.key; openFromList($0) },
-                                             newChild: { creatingChild = $0 }, ordered: { ordered($0) }) { s in
-                            workspaceAgentButton(s)
-                        }
+                                             openAgent: { openFromList($0) },
+                                             appeared: { s in if paginationArmed { Task { await model.sessionLists.appeared(s) } } },
+                                             agentIdentifier: compact ? "agents.compactRow" : "agents.row", ordered: { ordered($0) }) { s in
+                            slotRowContent(s, context: false, inStateSection: false)
+                        } actions: { worktree, agent in worktreeMenu(worktree, agent: agent) }
                         .listRowInsets(EdgeInsets(top: 0, leading: Theme.Space.xs, bottom: Theme.Space.xs, trailing: Theme.Space.xs))
                         .listRowBackground(Color.clear).listRowSeparator(.hidden)
                         .selectionDisabled()
@@ -1770,33 +1781,18 @@ private struct AgentsList: View {
 
     // MARK: Recently active
 
-    /// A control inside a workspace card is not a List row: row insets and swipe actions would apply to its parent cell.
-    private func workspaceAgentButton(_ s: Session) -> some View {
-        WorkspaceSidebarControl(open: { openFromList(s.key) }) {
-            slotRowContent(s, context: false, inStateSection: false)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                #if os(macOS)
-                .background {
-                    if s.key == macOpenNow && openedWorkspace == nil {
-                        RoundedRectangle(cornerRadius: Theme.Radius.control).fill(Theme.Fill.macSelected)
-                    }
-                }
-                #endif
-                .contentShape(.rect)
-        } actions: { workspaceAgentMenu(s) }
-        .macHoverShade(in: RoundedRectangle(cornerRadius: Theme.Radius.control), outset: 0)
-        #if os(macOS)
-        .macOptionClick { MacShellState.shared.chatWindow = s.key }
-        #endif
-        .accessibilityIdentifier(compact ? "agents.compactRow" : "agents.row")
-        .id(s.id)
-        .onAppear { if paginationArmed { Task { await model.sessionLists.appeared(s) } } }
-    }
-
-    private func workspaceAgentMenu(_ s: Session) -> some View {
+    private func workspaceAgentMenu(_ s: Session) -> AgentRowMenu {
         AgentRowMenu(key: s.key, pinned: model.isPinned(s.key), muted: model.isMuted(s), looping: s.loop != nil,
                      live: s.state.isLive, terminal: s.canTerminal, attachable: s.canAttach, deletable: s.canDelete,
-                     paneActions: NodeMenu.offersPaneActions(s), actions: rowActions).equatable()
+                     paneActions: NodeMenu.offersPaneActions(s), actions: rowActions)
+    }
+
+    @ViewBuilder private func worktreeMenu(_ worktree: RepoTree.Worktree, agent: Session? = nil) -> some View {
+        if let target = worktree.workspace {
+            WorktreeSidebarMenu(workspace: target, parent: workspaceCatalog.workspaces.first { $0.key == target.parentKey },
+                                sessions: ordered(worktree.sessions), agent: agent, menus: ordered(worktree.sessions).map(workspaceAgentMenu),
+                                open: { openFromList($0) }, newSession: { startingWorktree = $0 }, newChild: { creatingChild = $0 }).equatable()
+        }
     }
 
     @ViewBuilder private func recentSection(_ sessions: [Session]) -> some View {

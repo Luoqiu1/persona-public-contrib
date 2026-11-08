@@ -2,6 +2,19 @@ import BeautifulUI
 import OSLog
 import SwiftUI
 
+/// Rendered rows omit pinned Agents; worktree navigation and actions still address the complete direct inventory.
+@MainActor enum WorkspaceNavigation {
+    static func directSessions(_ workspace: HostWorkspace, inventory: [Session], catalog: [HostWorkspace]) -> [Session] {
+        inventory.filter { !$0.assistant && workspace.contains($0, catalog: catalog) }
+    }
+
+    static func firstAgent(rendered: [Session], workspace: HostWorkspace?, inventory: [Session], catalog: [HostWorkspace],
+                           ordered: ([Session]) -> [Session]) -> SessionKey? {
+        let direct = rendered.isEmpty ? workspace.map { directSessions($0, inventory: inventory, catalog: catalog) } ?? [] : rendered
+        return ordered(direct).first?.key
+    }
+}
+
 /// Agents that share a space (a herdr workspace, or whatever groups agents in another host) on one machine.
 nonisolated struct SpaceGroup: Identifiable, Sendable {
     var id: String // machineID/spaceID, "group|machineID/spaceID" for another group of hubs
@@ -1281,13 +1294,15 @@ private struct AgentsList: View {
     }
 
     private func openWorktree(_ worktree: RepoTree.Worktree) {
-        if let first = ordered(worktree.sessions).first { openFromList(first.key) }
+        if let first = WorkspaceNavigation.firstAgent(rendered: worktree.sessions, workspace: worktree.workspace,
+                                                      inventory: model.allSessions, catalog: workspaceCatalog.workspaces,
+                                                      ordered: { ordered($0) }) { openFromList(first) }
         else if let workspace = worktree.workspace { selectEmptyWorktree(workspace) }
     }
 
     private func openWorktree(_ workspace: HostWorkspace) {
-        let direct = model.allSessions.filter { !$0.assistant && workspace.contains($0, catalog: workspaceCatalog.workspaces) }
-        if let first = ordered(direct).first { openFromList(first.key) }
+        if let first = WorkspaceNavigation.firstAgent(rendered: [], workspace: workspace, inventory: model.allSessions,
+                                                      catalog: workspaceCatalog.workspaces, ordered: { ordered($0) }) { openFromList(first) }
         else { selectEmptyWorktree(workspace) }
     }
 
@@ -1632,7 +1647,7 @@ private struct AgentsList: View {
                     if w.catalog {
                         WorkspaceSidebarCard(workspace: w, project: r.name, selectedSession: openedWorkspace == nil ? model.visibleSession : nil,
                                              selectedWorkspace: openedWorkspace, folded: { isFolded($0) }, toggle: { toggleFold($0) },
-                                             open: { selectEmptyWorktree($0) },
+                                             open: { openWorktree($0) },
                                              openAgent: { openFromList($0) },
                                              appeared: { s in if paginationArmed { Task { await model.sessionLists.appeared(s) } } },
                                              agentIdentifier: compact ? "agents.compactRow" : "agents.row", ordered: { ordered($0) }) { s in
@@ -1792,8 +1807,9 @@ private struct AgentsList: View {
 
     @ViewBuilder private func worktreeMenu(_ worktree: RepoTree.Worktree, agent: Session? = nil) -> some View {
         if let target = worktree.workspace {
+            let direct = ordered(WorkspaceNavigation.directSessions(target, inventory: model.allSessions, catalog: workspaceCatalog.workspaces))
             WorktreeSidebarMenu(workspace: target, parent: workspaceCatalog.workspaces.first { $0.key == target.parentKey },
-                                sessions: ordered(worktree.sessions), agent: agent, menus: ordered(worktree.sessions).map(workspaceAgentMenu),
+                                sessions: direct, agent: agent, menus: direct.map(workspaceAgentMenu),
                                 open: { target in
                                     if target.key == worktree.workspace?.key { openWorktree(worktree) }
                                     else { openWorktree(target) }

@@ -42,6 +42,35 @@ struct WorkspaceNavigationTests {
         #expect(b.preset.host == "orca")
     }
 
+    @MainActor @Test func pinnedAgentsRemainWorktreeDestinationsWhenTheirTreeRowsAreEmpty() throws {
+        let root = workspace("root"), child = workspace("child", parent: root.sourceID)
+        var first = try session(kind: "orca", space: root.sourceID), second = first
+        first.sessionID = "first"; second.sessionID = "second"
+        var elsewhere = try session(kind: "orca", space: child.sourceID)
+        elsewhere.sessionID = "child-agent"
+        var otherHub = first
+        otherHub.group = "another-hub"
+        var settings = AgentListProjection.Settings()
+        var pins = Pins()
+        pins.sessions = ["m/first", "m/second"]
+        settings.preferences[""] = .init(pins: pins, mutes: Pins())
+        let machine = try JSON.decoder.decode(Machine.self, from: Data(#"{"id":"m","name":"Fixture","kind":"local","online":true}"#.utf8))
+        let projection = AgentListProjection.build(.init(sessions: [first, second], machines: [machine], settings: settings, workspaces: [root]))
+        #expect(projection.pinnedAgents.count == 2)
+        #expect(projection.tree.first?.repos.first?.worktrees.first?.sessions.isEmpty == true)
+        let direct = WorkspaceNavigation.directSessions(root, inventory: [first, elsewhere, otherHub, second], catalog: [root, child])
+        #expect(direct.map(\.key) == [first.key, second.key])
+        let destination = WorkspaceNavigation.firstAgent(rendered: [], workspace: root, inventory: [first, elsewhere, otherHub, second],
+                                                         catalog: [root, child], ordered: { $0.reversed() })
+        #expect(destination == second.key, "Pinning removes tree rows, not the worktree's direct Agent destination")
+        #expect(WorkspaceNavigation.firstAgent(rendered: [first], workspace: root, inventory: [first, second],
+                                                catalog: [root, child], ordered: { $0.reversed() }) == first.key,
+                "A displayed Agent retains the same title-click order as its rendered row")
+        #expect(WorkspaceNavigation.firstAgent(rendered: [], workspace: child, inventory: [first, second],
+                                                catalog: [root, child], ordered: { $0 }) == nil,
+                "An empty worktree never opens its parent's Agent")
+    }
+
     @Test func parentSelectionIsIndependentOfTheCodeSource() {
         #expect(WorktreeForm.body(workspaceID: "code", kind: "orca", parentWorkspaceID: "folder") ==
                 ["workspace_id": "code", "kind": "orca", "parent_workspace_id": "folder"])

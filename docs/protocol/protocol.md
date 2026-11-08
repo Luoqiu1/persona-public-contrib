@@ -1356,7 +1356,7 @@ A machine's session list has hundreds of sessions at about 1 KB each, and a push
 
 #### Opt-in parameters (both session collections)
 
-Any of `limit`, `cursor`, `since`, `summary`, `state`, `project`, `group`, or `counts` opts into the bounded API. Without them, legacy requests and response shapes remain unchanged: runtime `machine_id` filtering still returns the complete list; personal-agent `source`/`provider` filtering still returns the complete list; personal-agent `q` alone still searches messages and returns `items`.
+Any of `limit`, `cursor`, `since`, `summary`, `state`, `project`, `group`, or `counts` opts into the bounded API. `pane_source` also opts in, but is supported only by the runtime collection (see below). Without them, legacy requests and response shapes remain unchanged: runtime `machine_id` filtering still returns the complete list; personal-agent `source`/`provider` filtering still returns the complete list; personal-agent `q` alone still searches messages and returns `items`.
 
 | Parameter | Contract |
 | --- | --- |
@@ -1367,7 +1367,8 @@ Any of `limit`, `cursor`, `since`, `summary`, `state`, `project`, `group`, or `c
 | `machine_id` | Exact runtime machine id. Personal-agent sources do not expose a machine, so this filter matches no personal-agent rows. |
 | `project` | Exact runtime `repo_root`, falling back to `workspace_cwd`, then `cwd`. This is the node's supplied path, **not** a guessed repository or a knowledge-base project id. Personal-agent rows have no project. |
 | `group` | Runtime `space_id`, falling back to `workspace_id`; personal-agent `accountId`. Machine-local space ids can overlap: use `machine_id` with `group` when expanding a particular computer's group. This does not represent personal-agent custom preference sections or to-do group ids. |
-| `source` | Runtime `source_kind` or personal-agent contribution id. |
+| `source` | Runtime `source_kind` or personal-agent contribution id; unchanged transport/source semantics, never a pane origin. |
+| `pane_source` | Runtime only: exactly `terminal`, `feishu`, `desktop`, or `unknown`. Requires the independently advertised `sessions_pane_source` capability. See pane/host origins below. |
 | `provider` | Runtime `agent` or personal-agent `provider`. Empty values on older runtime nodes stay empty; no agent name is guessed. |
 | `q` | Case-insensitive substring, at most 256 Unicode characters. Runtime title, cwd, repository, space/slot/agent names and last preview; personal-agent title/provider/account id. With an opt-in parameter this is **row search**, never remote transcript/message search. |
 | `counts` | `1`/`true` returns aggregates instead of rows. `0`/`false` selects a normal page. The same filters apply. |
@@ -1400,6 +1401,30 @@ GET /api/v1/agents/sessions?summary=1&limit=50&source=demo
 - Snapshot retention is five minutes, with at most 32 active views per collection. A restart, expiry or eviction returns HTTP **409**, `code: "cursor_expired"`; restart at page one. Cursors bind filters and summary mode; a mismatched/tampered cursor returns 400.
 - The runtime collection includes Codex history. It uses the manager's already-decorated state, ownership, hidden/deleted-session rules and task metadata; it does not recompute business state in the hub.
 
+#### Pane/host origins (`sessions_pane_source`, #994)
+
+`hello.features` advertises **`sessions_pane_source`** independently of `sessions_list`. Only when it is advertised may clients request:
+
+```http
+GET /api/v1/sessions?pane_source=terminal&summary=1&limit=50
+GET /api/v1/sessions?pane_source=feishu&counts=1
+```
+
+Bounded runtime rows (full and summary) include **`pane_source`**, and runtime counts include a **`pane_source` map** (omitted when empty) over the complete matching set. Classification matches the clients' `sessionSource`, in this order:
+
+1. `space_kind == "codex_app"`, `host == "paseo"`, or both `source_kind == "runtime"` and `source_instance_id == "orca"`: **`desktop`**, even if a pane is present.
+2. A `botmux:` pane: **`feishu`**.
+3. Any other nonempty pane: **`terminal`**. This includes recognized Orca/Herdr App terminal panes and legacy Herdr identities; an unrecognized prefix remains a legacy Herdr pane, as in the host registry.
+4. No such metadata: **`unknown`**. A runtime transport alone is not evidence of a terminal origin.
+
+`source` still filters the existing `source_kind`; neither it nor the session's separate `origin`/`origin_ref` is repurposed. Origin combines with the other supported filters and exact lookup. The filter participates in cache keys and frozen cursor bindings. An origin-only change advances the index revision, updates complete counts, and causes an upsert/removal when a row enters/leaves the filter, even if `source_kind` and `updated_at` stay unchanged. Page, count and delta snapshots retain their existing revision rules; use a matching cursor for frozen counts.
+
+Empty, repeated, comma-separated or unrecognized origin values return **400 `invalid_query`**. Personal-agent `/api/v1/agents/sessions` rejects this runtime-only parameter (including `unknown`); it has no pane/host metadata and does not infer origin from its provider. For an extension token restricted to one manager in a multi-manager hub, aggregate origin requests must specify an authorized `machine_id`; an unsupported aggregate returns **400 `invalid_query`** instead of computing totals through the legacy ownership projection. A token authorized for the whole runtime collection needs no machine selector. Restricted aggregate requests without an origin filter retain the legacy counts projection and omit the new origin dimension; specify a machine to obtain exact origin counts.
+
+These counts describe the hub's complete shown runtime-session collection after the explicit filters, including any assistant/other rows that the legacy collection contains. They do **not** establish preference-defined Agents membership, pins/mutes/to-do sections, retained client windows, personal-agent aggregation or new sorting rules. Machine/session identity remains the composite `(machine_id, session_id)`.
+
+Old hubs ignore unknown query keys, so clients **must retain the old full-list/classifier fallback unless `sessions_pane_source` is advertised**. `sessions_list` alone is insufficient. No current client query, visual default or ordering changes here. Without opt-in, legacy full-list rows and behavior are unchanged; bounded requests without an origin filter retain their membership and ordering.
+
 #### Exact runtime-session detail (`sessions_lookup`, #6054)
 
 `hello.features` advertises **`sessions_lookup`** independently of `sessions_list`. Only when it is advertised, a client can fetch one complete runtime row without paging or scanning unrelated sessions:
@@ -1421,7 +1446,7 @@ The direct lookup/count path does not build, scan or sort unrelated session view
 
 Runtime summaries keep the existing snake_case names and decode as a `Session` with optional detail fields absent. They contain:
 
-- Identity/ownership: `machine_id`, `session_id`, `manager`; source/runtime and hierarchy fields (`source_kind`, `source_thread_id`, `source_instance_id`, `parent_thread_id`, `parent_session_id`, `root_session_id`, `is_subagent`).
+- Identity/ownership: `machine_id`, `session_id`, `manager`; pane/host origin `pane_source` and `host`; source/runtime and hierarchy fields (`source_kind`, `source_thread_id`, `source_instance_id`, `parent_thread_id`, `parent_session_id`, `root_session_id`, `is_subagent`).
 - Display/grouping: `title`, `cwd`, `workspace_cwd`, `repo_root`, `agent`, `agent_label`, `agent_surface`, `agent_name`; space, parent-space, slot, pane, tab and workspace identifiers/names/indices; `todo {id,title}`.
 - State/freshness: `state`, `status`, `updated_at`, `state_since`, `seen_at`, `pending_interactions`, `rev`, `quiet`, `awaits_reply`, `background_working`, `background_waiting`, `starting`, `start_error`, turn-error fields.
 - Row content/progress: `last_text`, `activity`, `activity_at`, `model`, context-token/window counts; bounded `work` (phase/on/line/wait/then/wake/attempts/agent/deferred), `plan`, `goal`, and `loop` timing with its prompt omitted.
@@ -1447,6 +1472,7 @@ GET /api/v1/agents/sessions?counts=1&source=demo
   "project": {"/demo/app": 8000},
   "group": {"space-a": 8000},
   "state": {"working": 2000, "needs_you": 2000, "unread": 2000, "idle": 2000},
+  "pane_source": {"terminal": 4000, "desktop": 2000, "feishu": 1000, "unknown": 1000},
   "background_waiting": 120,
   "revision": "<opaque checkpoint>"
 }
@@ -1454,7 +1480,7 @@ GET /api/v1/agents/sessions?counts=1&source=demo
 
 `background_waiting` (#6045, omitted when 0) is how many of the `working` ones only wait in the background (`Session.background_waiting`); they stay in `state.working` for older apps, and a client that shows them apart takes them out of its Working count.
 
-Each map counts the complete filtered membership by that dimension; missing attributes use the empty-string key. `limit` does not truncate counts. With a matching `cursor`, counts refer to that frozen view; without one they refer to the current collection. `since`, if supplied, is validated but does not turn counts into counts of changes. Read counts separately when a group expands, rather than deriving totals from loaded pages. The maps do not contain preference-defined custom sections, per-user pins/mutes or computed repository trees.
+Each map counts the complete filtered membership by that dimension; missing attributes use the empty-string key. `limit` does not truncate counts. With a matching `cursor`, counts refer to that frozen view; without one they refer to the current collection. `since`, if supplied, is validated but does not turn counts into counts of changes. Read counts separately when a group expands, rather than deriving totals from loaded pages. The runtime `pane_source` map uses the explicit four origins above, including `unknown`; the personal-agent collection omits this dimension. The maps do not contain preference-defined custom sections, per-user pins/mutes or computed repository trees.
 
 #### Incremental recovery
 
@@ -1484,11 +1510,13 @@ Client sequence:
 
 #### Cost and verification
 
-The shared transport index lives in `server/internal/sessionlist`; the runtime adapter is `server/internal/hub/sessions_list.go`, the personal-agent adapter `server/internal/agents/list.go`, and its HTTP facade `server/internal/extmgr/agents.go`.
+The runtime origin classifier lives in `server/internal/sessionorigin`, using the host registry and a shared corpus checked against the web client. The shared transport index carries/matches the immutable origin attribute without classifying sessions. The shared transport index lives in `server/internal/sessionlist`; the runtime adapter is `server/internal/hub/sessions_list.go`, the personal-agent adapter `server/internal/agents/list.go`, and its HTTP facade `server/internal/extmgr/agents.go`.
 
 Runtime indexing is lazy on the first paginated reader/negotiated socket, then updated by the manager's session-list reports and existing push hook. Personal-agent indexing updates when the existing 20-second source cache refreshes or its fallback poll runs; invalidation generations prevent late responses from resurrecting removed/stale data. Unchanged batches do not advance the revision. There is no database migration or new JSON state file.
 
 Filtered ordered views/counts are cached by revision (up to 64); warm pages and counts do not scan or sort the full collection. Unfiltered counters are maintained on changed records, so an unfiltered delta/count request does not scan or sort unrelated sessions even after a revision change. Filtered counts never build an ordered list merely to count matches. A new filter or changed revision builds one ordered view only when pages need it and reuses it. This moves work to updates/first cache misses; it does not claim that an upstream full-list report is O(1). Frozen views, query caches and the journal are bounded. Cold index initialization is a one-off cost and must be measured separately from warm request latency.
+
+`TestRuntimePaneSource8000` compares all pages and complete count dimensions for mixed origins and filter combinations against a corpus independently checked by the current web classifier, including late-page Feishu rows and repeated session ids across machines. Origin-only transitions and frozen page/count/delta bindings have separate regression tests.
 
 `TestAgents8000Measurement` and `BenchmarkAgents8000Legacy` exercise the real runtime HTTP handler with 8,000 synthetic rows (four machines, previews and task metadata), reporting JSON bytes, request CPU, allocations, retained heap and process peak RSS. `TestPersonalAgentPagedRoutes8000` checks the extension HTTP adapter and warm source-call count. Index tests traverse all 8,000 frozen rows, filtered counts, field-only changes, removals, expired cursors/checkpoints and concurrent readers/writers. One-off before/after readings and local test output belong in the linked PR/archived acceptance record, not in this evolving contract.
 

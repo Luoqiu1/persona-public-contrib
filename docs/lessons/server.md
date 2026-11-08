@@ -960,3 +960,9 @@ Go's `http.Client` follows a 301, 302 or 303 as a GET for any method but GET and
 - A hub card snapshot can lag the manager's outcome. Resolve may return `200 already:true` for an earlier answer; a new notification choice must report `not_pending` rather than claim that its new selection took effect. A retry of the original operation instead replays its saved success receipt.
 - A dropped bus connection can wrap the offline error even after a request was sent. Notification choices use the send-aware forwarding path: only a definitely offline manager releases the receipt; a lost response keeps an unknown receipt so reconnecting cannot execute the same tap again.
 - Hub tests isolate `HOME` in `TestMain`. A subprocess such as the architecture guard's `go list -deps` can then lose the downloaded toolchain and module caches even though the parent `go test` compiled successfully. Before running tests with a downloaded `GOTOOLCHAIN`, export `GOPATH`, `GOMODCACHE` and `GOCACHE` from their original `go env` values; retain the isolated home rather than disabling it.
+
+## Transport source is not pane origin (#994)
+
+A `runtime` session can be an Orca native desktop chat, a CLI in a terminal pane, a botmux topic or an unhosted runtime. Classify pane/host origins from the metadata, with desktop markers taking precedence, and keep transport filtering separate. New query keys need an independent advertised capability because an old hub may silently ignore them and return the wrong membership. Count the full matching index revision, and bind the origin to frozen cursors and delta membership even when the transport and timestamp never change.
+
+When adding scalars beside an embedded session DTO, account for its custom JSON methods: Go promotes them and can silently hide sibling fields. Preserve the compatibility encoding and explicitly serialize the additional list fields.

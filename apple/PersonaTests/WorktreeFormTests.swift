@@ -54,6 +54,22 @@ struct WorktreeFormTests {
         #expect(WorktreeForm.problem(.init(branch: "feat/x", path: "/p/x", pathEdited: false)) == nil)
     }
 
+    @Test func automaticNamesRequireTheHostsCapabilityAndNoExplicitPath() {
+        #expect(WorktreeForm.problem(.init(), automaticName: true) == nil)
+        #expect(WorktreeForm.usesAutomaticName(.init(branch: "  "), supported: true))
+        #expect(!WorktreeForm.usesAutomaticName(.init(), supported: false))
+        #expect(WorktreeForm.problem(.init(), automaticName: false) != nil)
+        #expect(WorktreeForm.problem(.init(path: "/custom", pathEdited: true), automaticName: true) != nil)
+        #expect(WorktreeForm.problem(.init(branch: "a..b", path: "/custom", pathEdited: true), automaticName: true) != nil)
+        #expect(WorktreeForm.problem(.init(branch: "feature/x", path: "/custom", pathEdited: true), automaticName: true) == nil)
+    }
+
+    @Test func olderPrepareResponsesNeverEnableAutomaticNaming() throws {
+        let old = try JSON.decoder.decode(WorktreePrepare.self, from: Data(#"{"repoName":"app","path":"/wt"}"#.utf8))
+        let current = try JSON.decoder.decode(WorktreePrepare.self, from: Data(#"{"repoName":"app","path":"/wt","automatic_name":true}"#.utf8))
+        #expect(!old.automaticName && current.automaticName)
+    }
+
     @Test func anOlderComputerIsToldToUpdate() {
         #expect(WorktreeForm.describe(APIError(status: 404, message: "not found"), what: "没能新建 worktree") == WorktreeForm.needsUpdate)
         #expect(WorktreeForm.describe(APIError(status: 502, message: "unknown method worktree.create"), what: "x") == WorktreeForm.needsUpdate)

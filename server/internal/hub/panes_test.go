@@ -281,3 +281,33 @@ func TestWorktreeCreatePassesOnlyItsFields(t *testing.T) {
 		t.Errorf("a refused request reached the node: %q", got)
 	}
 }
+
+func TestAutomaticWorktreeCreateRequiresABooleanFlagAndFullCredentials(t *testing.T) {
+	tn := newTermNode(t)
+	for _, body := range []string{
+		`{"workspace_id":"w1"}`, `{"workspace_id":"w1","auto_name":"true"}`,
+		`{"workspace_id":"w1","auto_name":false}`, `{"auto_name":true}`,
+	} {
+		if code := postAction(tn.hub, roleFull, "worktree/create", body); code != http.StatusBadRequest {
+			t.Fatalf("invalid automatic create %s = %d", body, code)
+		}
+	}
+	body := `{"workspace_id":"w1","kind":"orca","parent_workspace_id":"folder","auto_name":true,"command":"ignored"}`
+	for _, role := range []string{roleAnswer, roleLink, roleExtension} {
+		if code := postAction(tn.hub, role, "worktree/create", body); code != http.StatusForbidden {
+			t.Fatalf("%s: automatic create = %d", role, code)
+		}
+	}
+	if code := postAction(tn.hub, roleFull, "worktree/create", body); code != http.StatusOK {
+		t.Fatalf("automatic create = %d", code)
+	}
+	if got := tn.await(t, 1); len(got) != 1 {
+		t.Fatalf("refused requests reached the node: %v", got)
+	}
+	tn.mu.Lock()
+	got := tn.args["worktree.create"]
+	tn.mu.Unlock()
+	if got != `{"auto_name":true,"kind":"orca","parent_workspace_id":"folder","workspace_id":"w1"}` {
+		t.Fatalf("automatic create fields: %s", got)
+	}
+}

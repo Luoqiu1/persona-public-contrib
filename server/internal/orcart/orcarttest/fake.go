@@ -399,7 +399,7 @@ func validate(method string, p map[string]any) string {
 		return str("path", true)
 	case "worktree.create":
 		return first(str("repo", true), str("name", false), str("branchNameOverride", false), str("baseBranch", false),
-			str("parentWorktree", false), boolean("activate"))
+			str("parentWorktree", false), boolean("activate"), boolean("nameWasGenerated"))
 	case "terminal.create":
 		return first(str("worktree", true), str("title", true))
 	case "terminal.send":

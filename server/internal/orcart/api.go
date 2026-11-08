@@ -433,6 +433,8 @@ func (c *Client) RepoAdd(ctx context.Context, path, kind string) error {
 // (Orca's base ref when empty). Parent (a worktree selector) is the worktree it is listed under in Orca's sidebar.
 type WorktreeCreate struct {
 	Repo, Name, Branch, Base, Parent string
+	// Generated lets Orca retire collisions and keeps its first-work branch naming eligible.
+	Generated bool
 }
 
 // CreatedWorktree is the worktree worktree.create made. Orca picks another folder and branch (a "-2" suffix) when the
@@ -446,7 +448,12 @@ type CreatedWorktree struct {
 // CreateWorktree is worktree.create: Orca makes the checkout and keeps it as one of its worktrees, without activating
 // it (no focus change, no setup hooks).
 func (c *Client) CreateWorktree(ctx context.Context, w WorktreeCreate) (*CreatedWorktree, error) {
-	p := map[string]any{"repo": w.Repo, "name": w.Name, "branchNameOverride": w.Branch, "activate": false}
+	p := map[string]any{"repo": w.Repo, "name": w.Name, "activate": false}
+	if w.Generated {
+		p["nameWasGenerated"] = true
+	} else {
+		p["branchNameOverride"] = w.Branch
+	}
 	if w.Base != "" {
 		p["baseBranch"] = w.Base
 	}

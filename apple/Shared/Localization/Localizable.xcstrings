@@ -129347,6 +129347,29 @@
           }
         }
       }
+    },
+    "worktree.create": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Worktree"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建工作树"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークツリーを作成"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

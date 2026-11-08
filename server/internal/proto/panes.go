@@ -86,6 +86,8 @@ type WorktreePrepare struct {
 	Path   string `json:"path"`
 	// ChooseParent permits parent_workspace_id independently of the source workspace. Old nodes omit it.
 	ChooseParent bool `json:"choose_parent,omitempty"`
+	// AutomaticName permits an unnamed create. The host owns naming when supported, otherwise the node chooses a unique name.
+	AutomaticName bool `json:"automatic_name,omitempty"`
 }
 
 // WorktreeAdded is the worktree worktree.add made for a new agent (#6115): its checkout, its branch, the repository's root.

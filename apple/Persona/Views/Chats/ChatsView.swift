@@ -530,6 +530,7 @@ private struct AgentsList: View {
     @State private var workspaceCatalog = WorkspaceCatalog()
     @State private var openedWorkspace: String?
     @State private var creatingChild: HostWorkspace?
+    @State private var createdWorktree: HostWorkspace?
     @State private var startingWorktree: HostWorkspace?
     #if os(macOS)
     static let emptyMessage = String(localized: "Start an agent on any of your computers, then follow it live and take over here.")
@@ -1107,12 +1108,15 @@ private struct AgentsList: View {
         .confirmDeleteSession($deletingSession)
         .nodeActionPrompts()
         let sheets = decorated
-        .sheet(item: $creatingChild) { workspace in
+        .sheet(item: $creatingChild, onDismiss: {
+            guard let child = createdWorktree else { return }
+            createdWorktree = nil
+            selectEmptyWorktree(child)
+            startingWorktree = child
+        }) { workspace in
             NewWorktreeSheet(group: workspace.creationGroup, workspace: workspace) { made in
                 creatingChild = nil
-                let child = workspace.createdWorkspace(made)
-                openedWorkspace = child.key
-                openFromList(child)
+                createdWorktree = workspace.createdWorkspace(made)
                 Task { await workspaceCatalog.refresh(model.groupIDs) { model.api($0) } }
             }
         }
@@ -1133,7 +1137,6 @@ private struct AgentsList: View {
         }
         let list = sheets
         .onChange(of: model.visibleSession) { _, key in if key != nil { openedWorkspace = nil } }
-        .onChange(of: path.isEmpty) { _, empty in if empty { openedWorkspace = nil } }
         .task(id: listQuery) {
             paginationArmed = false
             if !query.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
@@ -1283,9 +1286,27 @@ private struct AgentsList: View {
     /// Something the list opens: in the split it replaces the detail column; in one stack the list is at the root, so
     /// this is the same as pushing it.
     private func openFromList(_ value: some Hashable) {
-        openedWorkspace = (value as? HostWorkspace)?.key
+        openedWorkspace = nil
         spaceAt = (value as? SpaceRoute).map { [0: $0.id] } ?? [:]
         path = NavigationPath([value])
+    }
+
+    private func selectEmptyWorktree(_ workspace: HostWorkspace) {
+        spaceAt = [:]
+        path = NavigationPath()
+        openedWorkspace = workspace.key
+        AppModel.rememberChat(nil)
+    }
+
+    private func openWorktree(_ worktree: RepoTree.Worktree) {
+        if let first = ordered(worktree.sessions).first { openFromList(first.key) }
+        else if let workspace = worktree.workspace { selectEmptyWorktree(workspace) }
+    }
+
+    private func openWorktree(_ workspace: HostWorkspace) {
+        let direct = model.allSessions.filter { !$0.assistant && workspace.contains($0, catalog: workspaceCatalog.workspaces) }
+        if let first = ordered(direct).first { openFromList(first.key) }
+        else { selectEmptyWorktree(workspace) }
     }
 
     #if os(iOS)
@@ -1631,7 +1652,7 @@ private struct AgentsList: View {
                     if w.catalog {
                         WorkspaceSidebarCard(workspace: w, project: r.name, selectedSession: openedWorkspace == nil ? model.visibleSession : nil,
                                              selectedWorkspace: openedWorkspace, folded: { isFolded($0) }, toggle: { toggleFold($0) },
-                                             open: { openedWorkspace = $0.key; openFromList($0) },
+                                             open: { selectEmptyWorktree($0) },
                                              openAgent: { openFromList($0) },
                                              appeared: { s in if paginationArmed { Task { await model.sessionLists.appeared(s) } } },
                                              agentIdentifier: compact ? "agents.compactRow" : "agents.row", ordered: { ordered($0) }) { s in
@@ -1730,9 +1751,9 @@ private struct AgentsList: View {
     @ViewBuilder private func worktreeRow(_ w: RepoTree.Worktree, depth: Int) -> some View {
         let (quiet, open) = worktreeFold(w)
         Group {
-            if let workspace = w.workspace {
+            if w.workspace != nil {
                 HStack(spacing: Theme.Space.s) {
-                    Button { openFromList(workspace) } label: {
+                    Button { openWorktree(w) } label: {
                         WorktreeRow(name: w.name, main: w.main, count: w.sessions.count, quiet: false, open: open, showChevron: false)
                     }
                     .buttonStyle(.plain)
@@ -1791,7 +1812,10 @@ private struct AgentsList: View {
         if let target = worktree.workspace {
             WorktreeSidebarMenu(workspace: target, parent: workspaceCatalog.workspaces.first { $0.key == target.parentKey },
                                 sessions: ordered(worktree.sessions), agent: agent, menus: ordered(worktree.sessions).map(workspaceAgentMenu),
-                                open: { openFromList($0) }, newSession: { startingWorktree = $0 }, newChild: { creatingChild = $0 }).equatable()
+                                open: { target in
+                                    if target.key == worktree.workspace?.key { openWorktree(worktree) }
+                                    else { openWorktree(target) }
+                                }, newSession: { startingWorktree = $0 }, newChild: { creatingChild = $0 }).equatable()
         }
     }
 
@@ -3588,7 +3612,6 @@ private struct AgentsDestinations: ViewModifier {
         content
             .navigationDestination(for: SessionKey.self) { key in ChatView(key: key).id(key).splitDetailPage(ownsBack: true) }
             .navigationDestination(for: SpaceRoute.self) { r in SpaceView(spaceKey: r.id).splitDetailPage() }
-            .navigationDestination(for: HostWorkspace.self) { w in HostWorkspaceView(workspace: w).id(w.key).splitDetailPage() }
             .navigationDestination(for: MachineRoute.self) { r in MachineSpacesView(ref: r.ref).splitDetailPage() }
             .navigationDestination(for: MachineListRoute.self) { _ in MachinesView().splitDetailPage() }
             .navigationDestination(for: MachineDetailRoute.self) { r in MachineDetailView(ref: r.ref).splitDetailPage() }

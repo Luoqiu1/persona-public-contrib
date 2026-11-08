@@ -74,7 +74,7 @@ struct WorkspaceSidebarCard<AgentContent: View, Actions: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            WorkspaceSidebarControl(open: { if let target = workspace.workspace { open(target) } }) {
+            WorkspaceSidebarControl(open: openWorktree) {
                 HStack(alignment: .top, spacing: Theme.Space.xxs) {
                     WorkspaceSidebarStatus(workspace: workspace)
                     VStack(alignment: .leading, spacing: Theme.Space.sm) {
@@ -143,6 +143,11 @@ struct WorkspaceSidebarCard<AgentContent: View, Actions: View>: View {
         }
         .onHover { hovered = $0 }
         .accessibilityElement(children: .contain)
+    }
+
+    private func openWorktree() {
+        if let first = ordered(workspace.sessions).first { openAgent(first.key) }
+        else if let target = workspace.workspace { open(target) }
     }
 
     /// The Agent row and the title/branch control receive their worktree actions from the same factory.

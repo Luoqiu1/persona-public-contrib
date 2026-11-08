@@ -10,7 +10,7 @@ import Testing
 
     private func session(_ id: String) throws -> Session {
         let data = Data("""
-        {"machine_id":"m","session_id":"\(id)","title":"Agent \(id)","cwd":"/code/b","status":"idle","state":"idle"}
+        {"machine_id":"m","session_id":"\(id)","title":"Agent \(id)","cwd":"/code/b","status":"idle","state":"idle","agent":"codex"}
         """.utf8)
         return try JSON.decoder.decode(Session.self, from: data)
     }
@@ -103,6 +103,13 @@ import Testing
             if index == 1 {
                 #expect(contents.contains { $0.title == sessions[0].title && $0.submenu != nil })
                 #expect(contents.contains { $0.title == sessions[1].title && $0.submenu != nil })
+                for session in sessions {
+                    let item = try #require(shown.items.first { $0.title == session.title && $0.submenu != nil })
+                    let image = try #require(item.image)
+                    #expect(image.size.width <= Theme.Size.markS && image.size.height <= Theme.Size.markS,
+                            "Native menu icons must not use the brand asset's full intrinsic size")
+                    #expect(item.view == nil, "Agent submenus use standard native menu rows")
+                }
             } else {
                 #expect(shown.items.contains { $0.title == String(localized: "Pin [Personal Agent List View 173f88]") })
             }

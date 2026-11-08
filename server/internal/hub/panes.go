@@ -161,7 +161,7 @@ func (h *Hub) paneRoutes(api *http.ServeMux) {
 	api.HandleFunc("POST /api/v1/machines/{mid}/tabs/rename", h.nodeAction(nodeActions["tabs/rename"]))
 	// #2431 "New worktree…": what the dialog starts from, and the worktree (full devices only, panes.go)
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/prepare", h.nodeAction(nodeActions["worktree/prepare"]))
-	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/create", h.nodeAction(nodeActions["worktree/create"]))
+	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/create", h.withClientOp("worktree_create", h.nodeAction(nodeActions["worktree/create"])))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/rename", h.nodeAction(nodeActions["worktree/rename"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/add", h.nodeAction(nodeActions["worktree/add"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/status", h.nodeAction(nodeActions["worktree/status"]))

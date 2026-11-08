@@ -77,8 +77,8 @@ extension APIClient {
 
     /// One of the node menu's routes, `POST /machines/{mid}/<path>`; only allowlisted fields and boolean flags reach the node.
     @discardableResult
-    func nodeAction<Body: Encodable & Sendable>(machine: String, _ path: String, _ body: Body, timeout: TimeInterval = 40) async throws -> Data {
-        try await post("/api/v1/machines/\(machine)/\(path)", body: body, timeout: timeout)
+    func nodeAction<Body: Encodable & Sendable>(machine: String, _ path: String, _ body: Body, timeout: TimeInterval = 40, opID: UUID? = nil) async throws -> Data {
+        try await post("/api/v1/machines/\(machine)/\(path)", body: body, timeout: timeout, opID: opID)
     }
 }
 
@@ -538,6 +538,22 @@ nonisolated struct WorktreeCreated: Decodable, Sendable, Equatable {
 /// The dialog's logic, as the web's `lib/worktree.ts` (docs/integrations/terminal.md「新建 worktree…」): the path follows the branch
 /// until it is typed by hand; the computer checks everything again.
 nonisolated enum WorktreeForm: Sendable {
+    /// A retry of the same creation intent reuses its receipt, including a lost success response.
+    struct CreationAttempt: Sendable {
+        private var target: String?
+        private var body: [String: JSONValue]?
+        private var id = UUID()
+
+        mutating func operationID(target: String, body: [String: JSONValue]) -> UUID {
+            if self.target != target || self.body != body {
+                self.target = target
+                self.body = body
+                id = UUID()
+            }
+            return id
+        }
+    }
+
     struct State: Equatable, Sendable {
         var branch = ""
         var path = ""
@@ -659,6 +675,7 @@ struct NewWorktreeSheet: View {
     @State private var failure: String?
     @State private var created: WorktreeCreated?
     @State private var advanced = false
+    @State private var attempt = WorktreeForm.CreationAttempt()
 
     private var workspaceID: String { sourceID ?? workspace?.sourceID ?? NodeMenu.workspaceID(group) ?? "" }
     private var parentWorkspaceID: String { parentID ?? workspace?.sourceID ?? NodeMenu.workspaceID(group) ?? "" }
@@ -845,10 +862,11 @@ struct NewWorktreeSheet: View {
             body["branch"] = .string(form.branch.trimmingCharacters(in: .whitespacesAndNewlines))
             body["path"] = .string(form.path.trimmingCharacters(in: .whitespacesAndNewlines))
         }
+        let operationID = attempt.operationID(target: group.machineRef.path, body: body)
         Task {
             defer { busy = false }
             do {
-                let data = try await api.nodeAction(machine: group.machineID, "worktree/create", body, timeout: 160)
+                let data = try await api.nodeAction(machine: group.machineID, "worktree/create", body, timeout: 160, opID: operationID)
                 var made = try JSON.decoder.decode(WorktreeCreated.self, from: data)
                 made.parentWorkspaceID = made.resolvedParent(sourceID: workspaceID)
                 if kind == "orca", made.parentWorkspaceID != parentWorkspaceID {

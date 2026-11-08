@@ -204,11 +204,19 @@ nonisolated struct RepoTree {
             let n = nodes[key]!
             guard var w = tree(key) else { continue }
             let place = RepoPlace(cwd: n.path, repoRoot: n.sessions.first?.repoRoot)
-            let repoKey = n.machine.path + "/" + (n.catalog ? "workspace/" + key : place.repo)
+            let metadata = n.workspace
+            let addressProject = metadata?.sourceID.components(separatedBy: "::")
+            let projectID = metadata?.projectID.flatMap { $0.isEmpty ? nil : $0 }
+                ?? ((addressProject?.count ?? 0) > 1 ? addressProject?.first.flatMap { $0.isEmpty ? nil : $0 } : nil)
+            let repoKey = n.machine.path + "/" + (projectID.map { "project/orca:" + $0 }
+                ?? (n.catalog ? "workspace/" + key : place.repo))
             var repo = repos[repoKey] ?? Repo(id: "repo/" + repoKey, machine: n.machine,
-                                            name: n.catalog ? w.name : (place.name.isEmpty ? unnamed : place.name),
-                                            path: place.repo, worktrees: [])
-            w.main = place.main
+                                            name: metadata?.projectName.flatMap { $0.isEmpty ? nil : $0 }
+                                                ?? (n.catalog && projectID == nil ? w.name : (place.name.isEmpty ? unnamed : place.name)),
+                                            path: metadata?.projectPath.flatMap { $0.isEmpty ? nil : $0 } ?? place.repo, worktrees: [])
+            if let name = metadata?.projectName, !name.isEmpty { repo.name = name }
+            if let path = metadata?.projectPath, !path.isEmpty { repo.path = path }
+            w.main = metadata?.isMain ?? place.main
             if !n.catalog {
                 w.id = "tree/" + n.machine.path + "/" + place.worktree
                 w.name = place.worktree == place.repo ? repo.name : place.worktree.split(separator: "/").last.map(String.init) ?? ""
@@ -236,7 +244,10 @@ nonisolated struct RepoTree {
         }
         var hosts: [MachineRef: [Repo]] = [:]
         for var repo in repos.values {
-            repo.worktrees.sort { $0.main != $1.main ? $0.main : before($0.name, $0.path, $1.name, $1.path) }
+            repo.worktrees.sort { a, b in
+                if a.catalog && b.catalog, let ai = a.workspace?.index, let bi = b.workspace?.index, ai != bi { return ai < bi }
+                return a.main != b.main ? a.main : before(a.name, a.path, b.name, b.path)
+            }
             hosts[repo.machine, default: []].append(repo)
         }
         return hostOrder(Set(hosts.keys), machines: machines).map { ref in

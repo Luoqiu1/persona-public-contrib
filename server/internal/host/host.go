@@ -392,6 +392,9 @@ type Space struct {
 	ParentID string
 	// DisplayName is the host's user-visible title; Label retains its existing session/pin identity.
 	DisplayName string
+	// Project placement is separate from workspace lineage: several roots can share one project.
+	ProjectID, ProjectName, ProjectPath string
+	IsMain                              *bool
 }
 
 // Slot holds panes inside a space (herdr: a tab).

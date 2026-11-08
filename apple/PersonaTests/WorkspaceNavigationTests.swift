@@ -49,5 +49,13 @@ struct WorkspaceNavigationTests {
         #expect(acknowledged.resolvedParent(sourceID: "code") == "folder")
     }
 
-
+    @Test func breadcrumbsIncludeTheRootProjectRatherThanAChildsGitProject() throws {
+        var root = workspace("research"), child = workspace("nested", parent: "research")
+        root.projectName = "app"; child.projectName = "other"
+        #expect(child.breadcrumb(in: [root, child]) == "app › research › nested")
+        root.projectName = "research"
+        #expect(child.breadcrumb(in: [root, child]) == "research › nested")
+        let decoded = try JSON.decoder.decode(HostWorkspace.self, from: Data(#"{"machine_id":"m","source":"orca","source_id":"w","title":"Review","cwd":"/external/tree","project_id":"p","project_name":"app","project_path":"/code/app","is_main":false}"#.utf8))
+        #expect(decoded.projectID == "p" && decoded.projectName == "app" && decoded.projectPath == "/code/app" && decoded.isMain == false)
+    }
 }

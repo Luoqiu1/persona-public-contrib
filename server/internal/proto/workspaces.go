@@ -9,6 +9,10 @@ type Workspace struct {
 	SourceID  string `json:"source_id"`
 	// ParentSourceID names a workspace on the same machine and source, even without agents.
 	ParentSourceID string `json:"parent_source_id,omitempty"`
+	ProjectID      string `json:"project_id,omitempty"`
+	ProjectName    string `json:"project_name,omitempty"`
+	ProjectPath    string `json:"project_path,omitempty"`
+	IsMain         *bool  `json:"is_main,omitempty"`
 	Index          int    `json:"index"`
 	Title          string `json:"title"`
 	Cwd            string `json:"cwd"`

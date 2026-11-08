@@ -9,6 +9,10 @@ nonisolated struct HostWorkspace: Decodable, Hashable, Identifiable, Sendable {
     var cwd: String
     var parentSourceID: String?
     var index: Int?
+    var projectID: String? = nil
+    var projectName: String? = nil
+    var projectPath: String? = nil
+    var isMain: Bool? = nil
     var group: String = ""
     var online = true
     var available = true
@@ -20,6 +24,7 @@ nonisolated struct HostWorkspace: Decodable, Hashable, Identifiable, Sendable {
     enum CodingKeys: String, CodingKey {
         case machineID = "machine_id", source, sourceID = "source_id", title, cwd
         case parentSourceID = "parent_source_id", index, online, available
+        case projectID = "project_id", projectName = "project_name", projectPath = "project_path", isMain = "is_main"
     }
 
     /// Explicit Orca placement wins. Older providers may only know a directory; use that only when it is unambiguous.
@@ -35,11 +40,13 @@ nonisolated struct HostWorkspace: Decodable, Hashable, Identifiable, Sendable {
 
     func breadcrumb(in catalog: [HostWorkspace]) -> String {
         let byKey = Dictionary(catalog.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a })
-        var names = [title], seen: Set<String> = [key], parent = parentKey
+        var names = [title], seen: Set<String> = [key], parent = parentKey, root = self
         while let key = parent, seen.insert(key).inserted, let item = byKey[key] {
             names.insert(item.title, at: 0)
             parent = item.parentKey
+            root = item
         }
+        if let project = root.projectName, !project.isEmpty, project != names.first { names.insert(project, at: 0) }
         return names.joined(separator: " › ")
     }
 
@@ -60,6 +67,10 @@ extension HostWorkspace {
         cwd = try c.decode(String.self, forKey: .cwd)
         parentSourceID = try c.decodeIfPresent(String.self, forKey: .parentSourceID)
         index = try c.decodeIfPresent(Int.self, forKey: .index)
+        projectID = try c.decodeIfPresent(String.self, forKey: .projectID)
+        projectName = try c.decodeIfPresent(String.self, forKey: .projectName)
+        projectPath = try c.decodeIfPresent(String.self, forKey: .projectPath)
+        isMain = try c.decodeIfPresent(Bool.self, forKey: .isMain)
         online = try c.decodeIfPresent(Bool.self, forKey: .online) ?? true
         available = try c.decodeIfPresent(Bool.self, forKey: .available) ?? true
     }

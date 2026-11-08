@@ -313,13 +313,31 @@ func (h *orcaHost) Spaces(ctx context.Context) ([]host.Space, error) {
 		return nil, orcaErr(err)
 	}
 	out := make([]host.Space, 0, len(trees))
+	projectPaths := map[string]string{}
+	for _, w := range trees {
+		if w.IsMain != nil && *w.IsMain && (w.HostID == "" || w.HostID == "local") {
+			projectPaths[orcaProjectID(w)] = w.Path
+		}
+	}
 	for _, w := range trees {
 		if w.WorktreeID != "" {
 			out = append(out, host.Space{ID: w.WorktreeID, Label: orcaSpaceLabel(w.Branch, w.Path),
-				Number: len(out) + 1, Cwd: w.Path, Branch: strings.TrimPrefix(w.Branch, "refs/heads/"), ParentID: orcaParent(w.WorktreeID, w.ParentWorktreeID), DisplayName: w.DisplayName})
+				Number: len(out) + 1, Cwd: w.Path, Branch: strings.TrimPrefix(w.Branch, "refs/heads/"), ParentID: orcaParent(w.WorktreeID, w.ParentWorktreeID), DisplayName: w.DisplayName,
+				ProjectID: orcaProjectID(w), ProjectName: w.Repo, ProjectPath: projectPaths[orcaProjectID(w)], IsMain: w.IsMain})
 		}
 	}
 	return out, nil
+}
+
+func orcaProjectID(w orcart.Worktree) string {
+	if w.RepoID != "" {
+		return w.RepoID
+	}
+	// Older Orca versions still use the documented <repo-id>::<path> workspace address.
+	if id, _, ok := strings.Cut(w.WorktreeID, "::"); ok {
+		return id
+	}
+	return ""
 }
 
 // orcaParent is a worktree's parent space, never itself.

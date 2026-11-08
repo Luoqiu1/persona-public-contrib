@@ -129,6 +129,8 @@ type Worktree struct {
 	Branch      string `json:"branch"`
 	DisplayName string `json:"displayName"`
 	Repo        string `json:"repo"`
+	RepoID      string `json:"repoId"`
+	IsMain      *bool  `json:"isMainWorktree"`
 	// ParentWorktreeID is the worktree this one is a child of in Orca's sidebar (its "N children"); empty for a top-level one.
 	ParentWorktreeID string `json:"parentWorktreeId"`
 	// Agents are the agents Orca's own hooks reported in the worktree's panes.

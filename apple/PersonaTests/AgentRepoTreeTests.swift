@@ -245,10 +245,51 @@ struct AgentRepoTreeTests {
         #expect(tree[0].repos[0].worktrees[0].children[0].sessions.count == 1)
     }
 
+    @Test func independentRootWorkspacesShareTheirOrcaProject() throws {
+        var a = workspace("research", path: "/external/research")
+        var b = workspace("review", path: "/another/review")
+        var c = workspace("ready", path: "/code/app/.worktrees/ready")
+        a.index = 3; b.index = 1; c.index = 2
+        var catalog = [a, b, c]
+        for i in catalog.indices {
+            catalog[i].projectID = "project-app"
+            catalog[i].projectName = "app"
+            catalog[i].projectPath = "/code/app"
+            catalog[i].isMain = false
+        }
+        catalog[1].projectName = nil; catalog[1].projectPath = nil // a retained older snapshot comes first
+        var child = workspace("nested", parent: "research")
+        child.projectID = "other-project"; child.projectName = "other"
+        catalog.append(child)
+        let repos = RepoTree.build([orca("live", child.cwd, space: "nested")], machines: machines, workspaces: catalog)[0].repos
+        #expect(repos.count == 1)
+        let repo = try #require(repos.first)
+        #expect(repo.name == "app" && repo.path == "/code/app")
+        #expect(repo.worktrees.map(\.name) == ["review", "ready", "research"])
+        #expect(repo.worktrees.allSatisfy { !$0.main })
+        #expect(repo.worktrees[2].children.map(\.name) == ["nested"], "cross-project lineage still follows the chosen parent")
+        #expect(repo.sessions.map(\.sessionID) == ["live"])
+    }
 
+    @Test func projectIdentityIsScopedAndDoesNotDependOnItsDisplayName() {
+        var a = workspace("a"), b = workspace("b"), remote = workspace("remote", machine: "machine-b")
+        var otherHub = workspace("other-hub", group: "other")
+        a.projectID = "one"; b.projectID = "two"; remote.projectID = "one"; otherHub.projectID = "one"
+        a.projectName = "app"; b.projectName = "app"; remote.projectName = "app"; otherHub.projectName = "app"
+        let catalog = [a, b, remote, otherHub]
+        let repos = RepoTree.build([], machines: machines, workspaces: catalog).flatMap(\.repos)
+        #expect(repos.count == 4 && Set(repos.map(\.id)).count == 4)
+        var renamed = catalog
+        renamed[0].projectName = "renamed"
+        #expect(Set(RepoTree.build([], machines: machines, workspaces: renamed).flatMap(\.repos).map(\.id)) == Set(repos.map(\.id)))
+    }
 
-
-
-
+    @Test func olderCatalogCanGroupTheDocumentedOrcaProjectAddresses() {
+        let a = workspace("repo-id::/code/app/.worktrees/a", path: "/code/app/.worktrees/a")
+        let b = workspace("repo-id::/code/app/.worktrees/b", path: "/code/app/.worktrees/b")
+        let repos = RepoTree.build([], machines: machines, workspaces: [a, b])[0].repos
+        #expect(repos.count == 1 && repos[0].name == "app")
+        #expect(repos[0].worktrees.count == 2)
+    }
 
 }

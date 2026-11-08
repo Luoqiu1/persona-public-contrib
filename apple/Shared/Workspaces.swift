@@ -7,12 +7,17 @@ nonisolated struct HostWorkspace: Decodable, Hashable, Identifiable, Sendable {
     var sourceID: String
     var title: String
     var cwd: String
+    var branch: String = ""
+    var head: String = ""
     var parentSourceID: String?
     var index: Int?
     var projectID: String? = nil
     var projectName: String? = nil
     var projectPath: String? = nil
     var isMain: Bool? = nil
+    var unread: Bool? = nil
+    var sidebarStatus: String? = nil
+    var workspaceKind: String? = nil
     var group: String = ""
     var online = true
     var available = true
@@ -22,9 +27,10 @@ nonisolated struct HostWorkspace: Decodable, Hashable, Identifiable, Sendable {
     var parentKey: String? { parentSourceID.map { machineRef.path + "/" + source + ":" + $0 } }
 
     enum CodingKeys: String, CodingKey {
-        case machineID = "machine_id", source, sourceID = "source_id", title, cwd
+        case machineID = "machine_id", source, sourceID = "source_id", title, cwd, branch, head
         case parentSourceID = "parent_source_id", index, online, available
         case projectID = "project_id", projectName = "project_name", projectPath = "project_path", isMain = "is_main"
+        case unread, sidebarStatus = "sidebar_status", workspaceKind = "workspace_kind"
     }
 
     /// Explicit Orca placement wins. Older providers may only know a directory; use that only when it is unambiguous.
@@ -65,12 +71,17 @@ extension HostWorkspace {
         sourceID = try c.decode(String.self, forKey: .sourceID)
         title = try c.decode(String.self, forKey: .title)
         cwd = try c.decode(String.self, forKey: .cwd)
+        branch = try c.decodeIfPresent(String.self, forKey: .branch) ?? ""
+        head = try c.decodeIfPresent(String.self, forKey: .head) ?? ""
         parentSourceID = try c.decodeIfPresent(String.self, forKey: .parentSourceID)
         index = try c.decodeIfPresent(Int.self, forKey: .index)
         projectID = try c.decodeIfPresent(String.self, forKey: .projectID)
         projectName = try c.decodeIfPresent(String.self, forKey: .projectName)
         projectPath = try c.decodeIfPresent(String.self, forKey: .projectPath)
         isMain = try c.decodeIfPresent(Bool.self, forKey: .isMain)
+        unread = try c.decodeIfPresent(Bool.self, forKey: .unread)
+        sidebarStatus = try c.decodeIfPresent(String.self, forKey: .sidebarStatus)
+        workspaceKind = try c.decodeIfPresent(String.self, forKey: .workspaceKind)
         online = try c.decodeIfPresent(Bool.self, forKey: .online) ?? true
         available = try c.decodeIfPresent(Bool.self, forKey: .available) ?? true
     }

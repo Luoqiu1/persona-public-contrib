@@ -3,6 +3,13 @@ import Testing
 @testable import Persona
 
 struct WorkspaceNavigationTests {
+    @Test func compactActivityAgesReserveRoomForTheModel() {
+        let now = Date(timeIntervalSince1970: 1000000)
+        #expect(WorkspaceList.age(now.addingTimeInterval(10), now: now) == "now")
+        #expect(WorkspaceList.age(now.addingTimeInterval(-3599), now: now) == "59m")
+        #expect(WorkspaceList.age(now.addingTimeInterval(-3600), now: now) == "1h")
+        #expect(WorkspaceList.age(now.addingTimeInterval(-86400), now: now) == "1d")
+    }
     private func workspace(_ id: String, parent: String? = nil, group: String = "") -> HostWorkspace {
         HostWorkspace(machineID: "m", source: "orca", sourceID: id, title: id, cwd: "/work/shared", parentSourceID: parent, group: group)
     }
@@ -55,7 +62,8 @@ struct WorkspaceNavigationTests {
         #expect(child.breadcrumb(in: [root, child]) == "app › research › nested")
         root.projectName = "research"
         #expect(child.breadcrumb(in: [root, child]) == "research › nested")
-        let decoded = try JSON.decoder.decode(HostWorkspace.self, from: Data(#"{"machine_id":"m","source":"orca","source_id":"w","title":"Review","cwd":"/external/tree","project_id":"p","project_name":"app","project_path":"/code/app","is_main":false}"#.utf8))
+        let decoded = try JSON.decoder.decode(HostWorkspace.self, from: Data(#"{"machine_id":"m","source":"orca","source_id":"w","title":"Review","cwd":"/external/tree","branch":"feature/review","project_id":"p","project_name":"app","project_path":"/code/app","is_main":false}"#.utf8))
         #expect(decoded.projectID == "p" && decoded.projectName == "app" && decoded.projectPath == "/code/app" && decoded.isMain == false)
+        #expect(decoded.branch == "feature/review")
     }
 }

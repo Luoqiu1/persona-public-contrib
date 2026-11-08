@@ -260,6 +260,7 @@ struct AgentRepoTreeTests {
         catalog[1].projectName = nil; catalog[1].projectPath = nil // a retained older snapshot comes first
         var child = workspace("nested", parent: "research")
         child.projectID = "other-project"; child.projectName = "other"
+        child.isMain = true
         catalog.append(child)
         let repos = RepoTree.build([orca("live", child.cwd, space: "nested")], machines: machines, workspaces: catalog)[0].repos
         #expect(repos.count == 1)
@@ -268,6 +269,7 @@ struct AgentRepoTreeTests {
         #expect(repo.worktrees.map(\.name) == ["review", "ready", "research"])
         #expect(repo.worktrees.allSatisfy { !$0.main })
         #expect(repo.worktrees[2].children.map(\.name) == ["nested"], "cross-project lineage still follows the chosen parent")
+        #expect(repo.worktrees[2].children[0].main, "a nested project's original checkout keeps its Primary badge")
         #expect(repo.sessions.map(\.sessionID) == ["live"])
     }
 

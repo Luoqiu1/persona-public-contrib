@@ -13,6 +13,10 @@ type Workspace struct {
 	ProjectName    string `json:"project_name,omitempty"`
 	ProjectPath    string `json:"project_path,omitempty"`
 	IsMain         *bool  `json:"is_main,omitempty"`
+	Unread         *bool  `json:"unread,omitempty"`
+	SidebarStatus  string `json:"sidebar_status,omitempty"`
+	WorkspaceKind  string `json:"workspace_kind,omitempty"`
+	Head           string `json:"head,omitempty"`
 	Index          int    `json:"index"`
 	Title          string `json:"title"`
 	Cwd            string `json:"cwd"`

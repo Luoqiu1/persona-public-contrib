@@ -313,6 +313,13 @@ func (h *orcaHost) Spaces(ctx context.Context) ([]host.Space, error) {
 		return nil, orcaErr(err)
 	}
 	out := make([]host.Space, 0, len(trees))
+	var heads map[string]string
+	if slices.ContainsFunc(trees, func(w orcart.Worktree) bool { return w.WorkspaceKind == "git" && w.Branch == "" }) {
+		// Optional detached identity metadata is bulk-read, without blocking the main inventory.
+		headCtx, cancel := context.WithTimeout(ctx, time.Second)
+		heads, _ = h.c.WorktreeHeads(headCtx)
+		cancel()
+	}
 	projectPaths := map[string]string{}
 	for _, w := range trees {
 		if w.IsMain != nil && *w.IsMain && (w.HostID == "" || w.HostID == "local") {
@@ -323,7 +330,8 @@ func (h *orcaHost) Spaces(ctx context.Context) ([]host.Space, error) {
 		if w.WorktreeID != "" {
 			out = append(out, host.Space{ID: w.WorktreeID, Label: orcaSpaceLabel(w.Branch, w.Path),
 				Number: len(out) + 1, Cwd: w.Path, Branch: strings.TrimPrefix(w.Branch, "refs/heads/"), ParentID: orcaParent(w.WorktreeID, w.ParentWorktreeID), DisplayName: w.DisplayName,
-				ProjectID: orcaProjectID(w), ProjectName: w.Repo, ProjectPath: projectPaths[orcaProjectID(w)], IsMain: w.IsMain})
+				ProjectID: orcaProjectID(w), ProjectName: w.Repo, ProjectPath: projectPaths[orcaProjectID(w)], IsMain: w.IsMain,
+				Unread: w.Unread, SidebarStatus: w.SidebarStatus, WorkspaceKind: w.WorkspaceKind, Head: heads[w.WorktreeID]})
 		}
 	}
 	return out, nil

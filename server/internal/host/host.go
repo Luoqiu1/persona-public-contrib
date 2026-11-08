@@ -395,6 +395,9 @@ type Space struct {
 	// Project placement is separate from workspace lineage: several roots can share one project.
 	ProjectID, ProjectName, ProjectPath string
 	IsMain                              *bool
+	Unread                              *bool
+	SidebarStatus, WorkspaceKind        string
+	Head                                string
 }
 
 // Slot holds panes inside a space (herdr: a tab).

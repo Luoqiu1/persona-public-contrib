@@ -528,6 +528,7 @@ struct ChatsView: View {
 /// The Agents list itself: what follows the hub's pushes (`ChatsView` holds the navigation and the toolbar).
 private struct AgentsList: View {
     @State private var workspaceCatalog = WorkspaceCatalog()
+    @State private var openedWorkspace: String?
     #if os(macOS)
     static let emptyMessage = String(localized: "Start an agent on any of your computers, then follow it live and take over here.")
     #else
@@ -693,7 +694,7 @@ private struct AgentsList: View {
 
     /// Starts folded: `foldedByDefault`, and a working tree's「N 个子项」(#3075).
     private static func foldsByDefault(_ id: String) -> Bool {
-        foldedByDefault.contains(id) || id.hasSuffix(RepoTree.childFoldSuffix)
+        foldedByDefault.contains(id) || id.hasSuffix(RepoTree.childFoldSuffix) || id.hasSuffix(RepoTree.agentsFoldSuffix)
     }
 
     private func isFolded(_ id: String, otherwise fallback: Bool = false) -> Bool {
@@ -1055,13 +1056,13 @@ private struct AgentsList: View {
         // room between the search field and the filters is the row's own (`AgentsHeader.filtersMargin`). The split's
         // sidebar keeps its native content margins.
         .contentMargins(.top, widthClass == .regular ? nil : 0, for: .scrollContent)
-        .environment(\.defaultMinListRowHeight, compact ? 30 : 44)
+        .environment(\.defaultMinListRowHeight, grouping == .repo ? Theme.Size.wellXS : compact ? 30 : 44)
         .environment(\.compactList, compact)
         #if DEBUG || PERF_SIGNPOST
         .overlay { if ScreenProbe.enabled { AgentsListProbe(feed: feed, sessions: base, asks: interactions, page: shell == nil ? nil : "agents") } }
         #endif
         .listSectionSpacing(compact ? .compact : .default)
-        .modifier(AgentsListPage(capsules: capsules))
+        .modifier(AgentsListPage(capsules: capsules, workspaceSidebar: grouping == .repo))
         // In the split's sidebar column (iPhone Duo open) the bar sits above the list; on a phone it is the list's
         // first row (above).
         .modifier(TopBar(abovePage: widthClass == .regular) {
@@ -1327,7 +1328,9 @@ private struct AgentsList: View {
                                            pane: TabPanes.Role? = nil) -> some View {
         // herdr is where most agents run: only the others name their host
         let host = showHost ? s.hostKind.flatMap { $0 == "herdr" ? nil : $0 } : nil
-        if compact {
+        if grouping == .repo {
+            WorkspaceAgentRow(session: s, time: time, muted: model.isMuted(s))
+        } else if compact {
             CompactSlotRow(session: s, muted: model.isMuted(s), hideState: inStateSection, space: context ? (s.spaceName ?? s.folderName) : nil, host: host, time: time, pane: pane)
                 .equatable()
         } else {
@@ -1585,12 +1588,27 @@ private struct AgentsList: View {
 
     /// A repository: its agents right in its card when it has only its main checkout, else its working trees, each a
     /// row with its agents a level in under it.
-    private func repoSection(_ r: RepoTree.Repo) -> some View {
-        foldableSection(r.id) { repoHeader(r, folded: $0) } content: {
+    @ViewBuilder private func repoSection(_ r: RepoTree.Repo) -> some View {
+        repoHeader(r, folded: isFolded(r.id))
+            .modifier(FoldAnchor(id: r.id, reader: feed.reader))
+            .listRowInsets(EdgeInsets(top: Theme.Space.sm, leading: Theme.WorkspaceSidebar.cardLeading,
+                                     bottom: Theme.Space.xs, trailing: Theme.Space.s))
+            .listRowBackground(Theme.WorkspaceSidebar.background).listRowSeparator(.hidden)
+        if !isFolded(r.id) {
             if r.flat {
                 agentRows(r.worktrees[0].sessions, key: r.worktrees[0].id)
             } else {
-                ForEach(r.worktrees) { w in worktreeRows(w) }
+                ForEach(r.worktrees) { w in
+                    if w.catalog {
+                        WorkspaceSidebarCard(workspace: w, project: r.name, selectedSession: openedWorkspace == nil ? model.visibleSession : nil,
+                                             selectedWorkspace: openedWorkspace, folded: { isFolded($0) }, toggle: { toggleFold($0) },
+                                             open: { openedWorkspace = $0.key; openFromList($0) }, ordered: { ordered($0) }) { s in
+                            slotRow(s).simultaneousGesture(TapGesture().onEnded { openedWorkspace = nil })
+                        }
+                        .listRowInsets(EdgeInsets(top: 0, leading: Theme.Space.xs, bottom: Theme.Space.xs, trailing: Theme.Space.xs))
+                        .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                    } else { worktreeRows(w) }
+                }
             }
         }
     }
@@ -1600,15 +1618,19 @@ private struct AgentsList: View {
     private func repoHeader(_ r: RepoTree.Repo, folded isFolded: Bool) -> some View {
         let spaces = SpaceGroup.build(r.sessions)
         let space = spaces.count == 1 && spaces[0].spaceID != "-" ? spaces[0] : nil
-        let counts = SpaceGroup(id: r.id, machineID: r.machine.id, spaceID: "-", group: r.machine.group, name: r.name, index: 0, sessions: r.sessions,
-                                aggregate: model.sessionLists.aggregate(repoScope(r)), bounded: model.sessionLists.isPaged(r.machine.group))
         let unread = r.sessions.filter { $0.state == .unread }.map(\.key)
         return HStack(spacing: Theme.Space.xs) {
             Button { toggleFold(r.id) } label: {
-                SpaceHeader(group: counts, machine: nil, showMachine: false, pinned: space.map(model.isPinned) ?? false,
-                            muted: space.map(model.isMuted) ?? false, folded: isFolded, symbol: Theme.Icon.folder)
+                HStack(spacing: Theme.Space.s) {
+                    Image(systemName: Theme.Icon.folder).foregroundStyle(Theme.WorkspaceSidebar.muted)
+                    Text(r.name).font(Theme.WorkspaceSidebar.titleUnread).foregroundStyle(Theme.WorkspaceSidebar.foreground).lineLimit(1)
+                    Spacer(minLength: 0)
+                    FoldChevron(folded: isFolded)
+                }.contentShape(.rect)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("agents.project")
+            .accessibilityLabel([r.name, isFolded ? String(localized: "Collapsed [Readiness Card ee6046]") : String(localized: "Expanded")].joined(separator: ", "))
             if let space {
                 TodoSpaceTag(group: space) { todoID in openFromList(TodoDetailRoute(id: todoID)) }
             }
@@ -1623,7 +1645,7 @@ private struct AgentsList: View {
                 } label: {
                     headerMenuLabel
                 }
-                .tint(compact ? Color.secondary : nil)
+                .tint(Theme.WorkspaceSidebar.muted)
                 .labelOnlyMenu()
                 .accessibilityLabel("More actions for \(r.name) [Chats View 661d12]")
             }
@@ -1679,7 +1701,6 @@ private struct AgentsList: View {
                 HStack(spacing: Theme.Space.s) {
                     Button { openFromList(workspace) } label: {
                         WorktreeRow(name: w.name, main: w.main, count: w.sessions.count, quiet: false, open: open, showChevron: false)
-                            .scaledFrame(minHeight: Theme.Size.wellXS)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("agents.worktree")
@@ -1694,7 +1715,6 @@ private struct AgentsList: View {
                         .accessibilityIdentifier("agents.foldWorkspace")
                     }
                 }
-                .padding(.leading, nested(depth))
             } else {
                 Button { toggleWorktree(w) } label: {
                     WorktreeRow(name: w.name, main: w.main, count: w.sessions.count, quiet: quiet, open: open)
@@ -1704,9 +1724,9 @@ private struct AgentsList: View {
                 .accessibilityIdentifier("agents.worktree")
             }
         }
-        .listRowInsets(compact ? CompactList.rowInsets(level: depth) : capsules ? Self.tabCapsuleInsets(level: depth) : nil)
-        .listRowBackground(capsules ? Color.clear : nil)
-        .listRowSeparator(capsules ? .hidden : .automatic)
+        .listRowInsets(WorkspaceList.rowInsets(level: depth))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         if open {
             if quiet {
                 ForEach(TabPanes.entries(ordered(w.sessions))) { e in entryRows(e, depth: depth + 1) }
@@ -1747,14 +1767,15 @@ private struct AgentsList: View {
         let below = w.children.flatMap(\.treeSessions)
         Button { toggleFold(id) } label: {
             ChildSpacesRow(count: w.children.count, open: open,
-                           group: SpaceGroup(id: id, machineID: below.first?.machineID ?? "", spaceID: "-", name: w.name, index: 0, sessions: below))
-                .padding(.leading, nested(depth))
+                           group: SpaceGroup(id: id, machineID: below.first?.machineID ?? "", spaceID: "-", name: w.name, index: 0, sessions: below), dense: true)
+                .environment(\.compactList, true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
         .modifier(FoldAnchor(id: id, reader: feed.reader))
-        .listRowInsets(compact ? CompactList.rowInsets(level: depth) : capsules ? Self.tabCapsuleInsets(level: depth) : nil)
-        .listRowBackground(capsules ? Color.clear : nil)
-        .listRowSeparator(capsules ? .hidden : .automatic)
+        .listRowInsets(WorkspaceList.rowInsets(level: depth))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         .accessibilityIdentifier("agents.childSpaces")
     }
 
@@ -1990,6 +2011,7 @@ private struct AgentsList: View {
     /// A row's edges in Compact List and the capsules, `level` levels in: under a working tree, under a tab's starter, or both.
     /// Nil: the grouped list's own, the row's content moved in instead (`nested`).
     private func rowInsets(level: Int) -> EdgeInsets? {
+        if grouping == .repo { return WorkspaceList.rowInsets(level: level) }
         if compact { return CompactList.rowInsets(level: level) }
         if capsules { return Self.capsuleInsets(level: level) }
         return nil
@@ -1997,7 +2019,7 @@ private struct AgentsList: View {
 
     /// How far a row's content moves in under a working tree in the grouped list (its row keeps the list's insets, so
     /// its line starts where its text does).
-    private func nested(_ level: Int) -> CGFloat { !compact && !capsules ? Theme.Space.l * CGFloat(level) : 0 }
+    private func nested(_ level: Int) -> CGFloat { grouping != .repo && !compact && !capsules ? Theme.Space.l * CGFloat(level) : 0 }
 
     /// Compact List: a quiet space as one row like an agent's, its agents under it when opened (a DisclosureGroup's own row
     /// is taller and its arrow heavier than everything else in the list).
@@ -2154,9 +2176,9 @@ private struct AgentsList: View {
             .accessibilityIdentifier(compact ? "agents.compactRow" : "agents.row")
             // BeautifulUI's Capsules: each agent its own capsule on the page (no list card, line or system chevron); List and
             // Persona' own rows: the list's card.
-            .navigationLinkIndicatorVisibility(capsules ? .hidden : .automatic)
-            .listRowBackground(capsules ? Color.clear : nil)
-            .listRowSeparator(capsules ? .hidden : .automatic)
+            .navigationLinkIndicatorVisibility(grouping == .repo || capsules ? .hidden : .automatic)
+            .listRowBackground(grouping == .repo || capsules ? Color.clear : nil)
+            .listRowSeparator(grouping == .repo || capsules ? .hidden : .automatic)
             .listRowInsets(capsules ? cardLast.map { EdgeInsets(top: 0, leading: Theme.Space.page, bottom: $0 ? Theme.Space.xs : 0, trailing: Theme.Space.page) }
                                ?? rowInsets(level: level)
                            : rowInsets(level: level)) // a card's rows touch (the card is one surface); capsules keep a little air between them
@@ -3325,9 +3347,12 @@ private struct AgentsEdge: ViewModifier {
 /// The capsules' plain list over the grouped page's color (the color the grouped list had); otherwise the style's page.
 private struct AgentsListPage: ViewModifier {
     let capsules: Bool
+    var workspaceSidebar = false
 
     func body(content: Content) -> some View {
-        if capsules { content.scrollContentBackground(.hidden).background(Theme.groupedPage) } else { content.themedPage() }
+        if workspaceSidebar { content.listStyle(.plain).scrollContentBackground(.hidden).background(Theme.WorkspaceSidebar.background) }
+        else if capsules { content.scrollContentBackground(.hidden).background(Theme.groupedPage) }
+        else { content.themedPage() }
     }
 }
 

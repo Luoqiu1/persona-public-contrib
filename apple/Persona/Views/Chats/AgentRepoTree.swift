@@ -75,6 +75,7 @@ nonisolated struct RepoTree {
         var children: [Worktree] = []
         /// The fold id of its「N 个子项」row; folded until opened (`childFoldSuffix`).
         var childrenFoldID: String { id + RepoTree.childFoldSuffix }
+        var agentsFoldID: String { id + RepoTree.agentsFoldSuffix }
         /// Its agents and its children's.
         var treeSessions: [Session] { sessions + children.flatMap(\.treeSessions) }
         var catalog = false
@@ -108,6 +109,7 @@ nonisolated struct RepoTree {
     static let unnamed = String(localized: "Other")
     /// A working tree's「N 个子项」fold id: its id and this.
     static let childFoldSuffix = String(localized: "/sub-items")
+    static let agentsFoldSuffix = "/workspace-agents"
 
     /// A session's space on its machine, unique across hosts; nil outside a space.
     static func spaceKey(_ s: Session) -> String? {
@@ -196,7 +198,7 @@ nonisolated struct RepoTree {
             let matches = includeEmpty && !search.isEmpty && (n.name + " " + n.path).localizedStandardContains(search)
             guard includeEmpty && search.isEmpty || matches || !n.sessions.isEmpty || !below.isEmpty else { return nil }
             let name = n.name.isEmpty ? n.path.split(separator: "/").last.map(String.init) ?? unnamed : n.name
-            return Worktree(id: "tree/space/" + key, name: name, path: n.path, main: false,
+            return Worktree(id: "tree/space/" + key, name: name, path: n.path, main: n.workspace?.isMain ?? false,
                             sessions: n.sessions, children: below, catalog: n.catalog, workspace: n.workspace)
         }
         var repos: [String: Repo] = [:]

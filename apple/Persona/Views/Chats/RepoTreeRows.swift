@@ -1,5 +1,263 @@
 import SwiftUI
 
+/// Repository browsing keeps one compact line per Agent, without reply previews.
+nonisolated enum WorkspaceList {
+    static func age(_ at: Date, now: Date) -> String {
+        let seconds = max(0, now.timeIntervalSince(at))
+        if seconds < 60 { return String(localized: "workspace.age.now", defaultValue: "now") }
+        if seconds < 3600 { return String.localizedStringWithFormat(String(localized: "workspace.age.minutes", defaultValue: "%lldm"), Int64(seconds / 60)) }
+        if seconds < 86400 { return String.localizedStringWithFormat(String(localized: "workspace.age.hours", defaultValue: "%lldh"), Int64(seconds / 3600)) }
+        return String.localizedStringWithFormat(String(localized: "workspace.age.days", defaultValue: "%lldd"), Int64(seconds / 86400))
+    }
+    static func rowInsets(level: Int) -> EdgeInsets {
+        EdgeInsets(top: Theme.Space.xs, leading: Theme.Space.page + Theme.Space.m * CGFloat(level),
+                   bottom: Theme.Space.xs, trailing: Theme.Space.page)
+    }
+}
+
+extension RepoTree.Worktree {
+    var sidebarUnread: Bool { workspace?.unread ?? sessions.contains { $0.state == .unread } }
+    var sidebarState: AgentState {
+        switch workspace?.sidebarStatus {
+        case "working", "monitoring": return .working
+        case "permission", "failed", "unconfirmed": return .needsYou
+        case "active", "done": return .unread
+        case "inactive", "interrupted": return .idle
+        default: return sessions.map(\.state).min { $0.priority < $1.priority } ?? .idle
+        }
+    }
+    func contains(workspace key: String?) -> Bool {
+        guard let key else { return false }
+        return workspace?.key == key || children.contains { $0.contains(workspace: key) }
+    }
+}
+
+struct WorkspaceSidebarStatus: View {
+    var workspace: RepoTree.Worktree
+
+    var body: some View {
+        Group {
+            if workspace.sidebarUnread {
+                Image(systemName: Theme.Icon.workspaceUnread).font(Theme.WorkspaceSidebar.meta)
+                    .foregroundStyle(Theme.WorkspaceSidebar.unread)
+            } else {
+                StatusDot(state: workspace.sidebarState, size: Theme.Size.dot)
+            }
+        }
+        .scaledFrame(width: Theme.WorkspaceSidebar.statusLane, height: Theme.WorkspaceSidebar.titleHeight)
+    }
+}
+
+/// A card owns its descendants so selection washes and indentation follow the same geometry at every level.
+struct WorkspaceSidebarCard<AgentContent: View>: View {
+    var workspace: RepoTree.Worktree
+    var project: String
+    var selectedSession: SessionKey?
+    var selectedWorkspace: String?
+    var folded: (String) -> Bool
+    var toggle: (String) -> Void
+    var open: (HostWorkspace) -> Void
+    var ordered: ([Session]) -> [Session]
+    @ViewBuilder var agent: (Session) -> AgentContent
+    @State private var hovered = false
+
+    private var active: Bool {
+        workspace.contains(workspace: selectedWorkspace) || selectedSession.map { key in workspace.treeSessions.contains { $0.key == key } } == true
+    }
+    private var childOpen: Bool { !folded(workspace.childrenFoldID) }
+    private var agentOpen: Bool { !folded(workspace.agentsFoldID) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            HStack(alignment: .top, spacing: Theme.Space.xxs) {
+                WorkspaceSidebarStatus(workspace: workspace)
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                    Button { if let target = workspace.workspace { open(target) } } label: {
+                        HStack(spacing: Theme.Space.sm) {
+                            Text(workspace.name)
+                                .font(workspace.sidebarUnread ? Theme.WorkspaceSidebar.titleUnread : Theme.WorkspaceSidebar.title)
+                                .foregroundStyle(Theme.WorkspaceSidebar.foreground).lineLimit(1)
+                            if workspace.main {
+                                Text(String(localized: "workspace.primary", defaultValue: "Primary"))
+                                    .font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.WorkspaceSidebar.foreground.opacity(0.7))
+                                    .padding(.horizontal, Theme.Space.sm)
+                                    .scaledFrame(height: Theme.WorkspaceSidebar.badgeHeight)
+                                    .background(Theme.WorkspaceSidebar.foreground.opacity(0.06), in: .rect(cornerRadius: Theme.WorkspaceSidebar.chipRadius))
+                                    .overlay { RoundedRectangle(cornerRadius: Theme.WorkspaceSidebar.chipRadius).stroke(Theme.WorkspaceSidebar.foreground.opacity(0.2)) }
+                                    .fixedSize()
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .scaledFrame(minHeight: Theme.WorkspaceSidebar.titleHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
+                    }
+                    .buttonStyle(.plain).accessibilityIdentifier("agents.worktree")
+                    metadata
+                    if workspace.sessions.count > 1 {
+                        agentDisclosure
+                        if agentOpen { ForEach(ordered(workspace.sessions)) { agent($0) } }
+                    } else {
+                        ForEach(workspace.sessions) { agent($0) }
+                    }
+                    if !workspace.children.isEmpty {
+                        Button { toggle(workspace.childrenFoldID) } label: {
+                            WorkspaceChildrenChip(children: workspace.children, open: childOpen)
+                        }
+                        .buttonStyle(.plain).accessibilityIdentifier("agents.childSpaces")
+                    }
+                }
+            }
+            if !workspace.children.isEmpty && childOpen {
+                VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                    ForEach(workspace.children) { child in
+                        WorkspaceSidebarCard(workspace: child, project: project, selectedSession: selectedSession,
+                                             selectedWorkspace: selectedWorkspace, folded: folded, toggle: toggle,
+                                             open: open, ordered: ordered, agent: agent)
+                    }
+                }.padding(.leading, Theme.WorkspaceSidebar.childInset)
+            }
+        }
+        .padding(.leading, Theme.WorkspaceSidebar.cardLeading)
+        .padding(.trailing, Theme.Space.sm)
+        .padding(.vertical, Theme.Space.sm)
+        .background(active ? Theme.WorkspaceSidebar.selected : hovered ? Theme.WorkspaceSidebar.hovered : Color.clear,
+                    in: .rect(cornerRadius: Theme.WorkspaceSidebar.cardRadius))
+        .overlay {
+            if active { RoundedRectangle(cornerRadius: Theme.WorkspaceSidebar.cardRadius).stroke(Theme.WorkspaceSidebar.border.opacity(0.4)) }
+        }
+        .onHover { hovered = $0 }
+    }
+
+    private var metadata: some View {
+        HStack(spacing: Theme.Space.sm) {
+            if let name = workspace.workspace?.projectName, !name.isEmpty, name != project {
+                HStack(spacing: Theme.Space.xxs) {
+                    Rectangle().fill(Theme.WorkspaceSidebar.muted).scaledFrame(width: Theme.Size.dotXS, height: Theme.Size.dotXS)
+                    Text(name).lineLimit(1)
+                }
+                .font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.WorkspaceSidebar.foreground)
+                .padding(.horizontal, Theme.Space.xxs).scaledFrame(height: Theme.WorkspaceSidebar.badgeHeight)
+                .scaledFrame(maxWidth: Theme.WorkspaceSidebar.projectBadgeWidth)
+                .background(Theme.WorkspaceSidebar.background, in: .rect(cornerRadius: Theme.WorkspaceSidebar.chipRadius))
+                .overlay { RoundedRectangle(cornerRadius: Theme.WorkspaceSidebar.chipRadius).stroke(Theme.WorkspaceSidebar.border) }
+                .accessibilityIdentifier("agents.workspaceProject")
+            }
+            if let target = workspace.workspace {
+                if !target.branch.isEmpty {
+                    Text(target.branch).font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.WorkspaceSidebar.muted).lineLimit(1)
+                        .accessibilityIdentifier("agents.workspaceBranch")
+                } else if target.workspaceKind == "git" {
+                    Label {
+                        Text(String(localized: "Detached HEAD") + (target.head.isEmpty ? "" : " @ " + String(target.head.prefix(7))))
+                    } icon: { Image(systemName: Theme.Icon.gitBranch) }
+                        .font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.cautionText).lineLimit(1)
+                        .padding(.horizontal, Theme.Space.xs).padding(.vertical, Theme.Space.xxs)
+                        .background(Theme.caution.opacity(0.06), in: .rect(cornerRadius: Theme.WorkspaceSidebar.chipRadius))
+                        .overlay { RoundedRectangle(cornerRadius: Theme.WorkspaceSidebar.chipRadius).stroke(Theme.caution.opacity(0.35)) }
+                        .accessibilityIdentifier("agents.workspaceDetached")
+                } else if target.workspaceKind == "folder-workspace" || target.workspaceKind == "folder" {
+                    Text((target.cwd as NSString).lastPathComponent).font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.WorkspaceSidebar.muted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: Theme.Icon.workspaceHost).font(Theme.WorkspaceSidebar.meta)
+                    .rotationEffect(Theme.WorkspaceSidebar.hostRotation)
+                    .foregroundStyle(Theme.WorkspaceSidebar.muted)
+                    .accessibilityLabel(target.available ? target.source : String(localized: "This computer is offline"))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var agentDisclosure: some View {
+        Button { toggle(workspace.agentsFoldID) } label: {
+            HStack(spacing: Theme.Space.xs) {
+                if let s = workspace.sessions.first {
+                    StatusDot(state: s.state, size: Theme.Size.dotS)
+                    AgentMark(s)
+                }
+                Text("+\(workspace.sessions.count)").font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.WorkspaceSidebar.muted)
+                Spacer(minLength: 0)
+                FoldChevron(folded: !agentOpen)
+            }
+            .padding(.horizontal, Theme.Space.sm).scaledFrame(height: Theme.WorkspaceSidebar.agentHeight)
+            .background(Theme.WorkspaceSidebar.foreground.opacity(0.02), in: .rect(cornerRadius: Theme.WorkspaceSidebar.chipRadius))
+            .overlay { RoundedRectangle(cornerRadius: Theme.WorkspaceSidebar.chipRadius).stroke(Theme.WorkspaceSidebar.border) }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain).accessibilityIdentifier("agents.foldWorkspace")
+        .accessibilityLabel(String(localized: "workspace.toggle", defaultValue: "Expand or collapse workspace"))
+    }
+}
+
+struct WorkspaceChildrenChip: View {
+    var children: [RepoTree.Worktree]
+    var open: Bool
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            contents(words: true)
+            contents(words: false)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel([String(localized: "\(children.count) items [Repo Tree Rows 8af700]"), open ? String(localized: "Expanded") : String(localized: "Collapsed [Readiness Card ee6046]")].joined(separator: ", "))
+    }
+
+    private func contents(words: Bool) -> some View {
+        HStack(spacing: Theme.Space.xs) {
+            WorkspaceLineageMark()
+            if words { Text("\(children.count) items [Repo Tree Rows 8af700]") }
+            else { Text(children.count.formatted()) }
+            Rectangle().fill(Theme.WorkspaceSidebar.border).scaledFrame(width: Theme.WorkspaceSidebar.rule, height: Theme.WorkspaceSidebar.statusLane)
+            ForEach([AgentState.needsYou, .working, .unread, .idle, .offline, .unknown], id: \.rawValue) { state in
+                let count = children.filter { $0.sidebarState == state }.count
+                if count > 0 {
+                    StatusDot(state: state, size: Theme.Size.dotS)
+                    Text(count.formatted()).monospacedDigit()
+                }
+            }
+            FoldChevron(folded: !open)
+        }
+        .font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.WorkspaceSidebar.foreground)
+        .padding(.horizontal, Theme.Space.xs).padding(.vertical, Theme.Space.xxs)
+        .fixedSize(horizontal: true, vertical: false)
+        .background(Theme.WorkspaceSidebar.chip, in: .rect(cornerRadius: Theme.WorkspaceSidebar.chipRadius))
+        .overlay { RoundedRectangle(cornerRadius: Theme.WorkspaceSidebar.chipRadius).stroke(Theme.WorkspaceSidebar.border) }
+    }
+}
+
+struct WorkspaceAgentRow: View {
+    var session: Session
+    var time: AgentTime?
+    var muted: Bool
+
+    var body: some View {
+        HStack(spacing: Theme.Space.xs) {
+            if session.state == .unread || session.state == .idle {
+                Image(systemName: Theme.Icon.success).font(Theme.WorkspaceSidebar.meta).foregroundStyle(Theme.WorkspaceSidebar.success)
+            } else { StatusDot(state: session.state, size: Theme.Size.dotS) }
+            AgentMark(session, side: Theme.Size.markXS)
+            Text(session.displayTitle).font(session.state == .unread ? Theme.Font.labelStrong : Theme.WorkspaceSidebar.agent)
+                .foregroundStyle(session.state == .unread ? Theme.WorkspaceSidebar.foreground : Theme.WorkspaceSidebar.muted)
+                .lineLimit(1).layoutPriority(1)
+            Spacer(minLength: 0)
+            Text(session.model.flatMap { $0.isEmpty ? nil : $0 } ?? session.agentLabel)
+                .font(Theme.WorkspaceSidebar.meta.monospaced()).foregroundStyle(Theme.WorkspaceSidebar.muted).lineLimit(1)
+                .scaledWidthCap(Theme.WorkspaceSidebar.projectBadgeWidth).fixedSize(horizontal: true, vertical: false)
+                .accessibilityIdentifier("agents.workspaceModel")
+            if let at = time?.updatedAt ?? session.updatedAt, at.isMeaningful {
+                TimelineView(.periodic(from: .now, by: 30)) { tick in
+                    Text(WorkspaceList.age(at, now: tick.date)).font(Theme.WorkspaceSidebar.meta.monospacedDigit())
+                        .foregroundStyle(Theme.WorkspaceSidebar.muted).lineLimit(1)
+                }.fixedSize()
+            }
+        }
+        .scaledFrame(height: Theme.WorkspaceSidebar.agentHeight)
+        .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(session.stateLabel(muted: muted))
+    }
+}
+
 /// A machine's heading where the Agents list is split by machine (By Repository, By Project with agents on more than one machine,
 /// #2108): its mark in a tile and its name a level above the headers under it, its agents' state counts on the right.
 struct HostHeading: View {
@@ -70,6 +328,7 @@ struct ChildSpacesRow: View {
     var open: Bool
     /// Everything nested under it, for the counts.
     var group: SpaceGroup
+    var dense = false
     @Environment(\.compactList) private var compact
 
     var body: some View {
@@ -83,11 +342,14 @@ struct ChildSpacesRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize()
-            Spacer(minLength: Theme.Space.xs)
+            if !dense { Spacer(minLength: Theme.Space.xs) }
             StateCounts(group: group)
             FoldChevron(folded: !open)
         }
-        .padding(.vertical, compact ? 0 : Theme.Space.xxs)
+        .padding(.horizontal, dense ? Theme.Space.sm : 0)
+        .padding(.vertical, dense ? Theme.Space.xxs : compact ? 0 : Theme.Space.xxs)
+        .background(dense ? Theme.Fill.chip : Color.clear, in: .rect(cornerRadius: Theme.Radius.badge))
+        .fixedSize(horizontal: dense, vertical: false)
         .contentShape(.rect)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([String(localized: "\(count) items [Repo Tree Rows 8af700]"), StateCounts.spoken(group), open ? String(localized: "Expanded") : String(localized: "Collapsed [Readiness Card ee6046]")].filter { !$0.isEmpty }

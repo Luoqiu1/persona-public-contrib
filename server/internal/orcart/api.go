@@ -123,18 +123,40 @@ func (n *layoutNode) tabs(worktree string, out *[]Tab) {
 
 // Worktree is one worktree of worktree.ps.
 type Worktree struct {
-	WorktreeID  string `json:"worktreeId"`
-	HostID      string `json:"hostId"`
-	Path        string `json:"path"`
-	Branch      string `json:"branch"`
-	DisplayName string `json:"displayName"`
-	Repo        string `json:"repo"`
-	RepoID      string `json:"repoId"`
-	IsMain      *bool  `json:"isMainWorktree"`
+	WorktreeID    string `json:"worktreeId"`
+	HostID        string `json:"hostId"`
+	Path          string `json:"path"`
+	Branch        string `json:"branch"`
+	DisplayName   string `json:"displayName"`
+	Repo          string `json:"repo"`
+	RepoID        string `json:"repoId"`
+	IsMain        *bool  `json:"isMainWorktree"`
+	Unread        *bool  `json:"unread"`
+	SidebarStatus string `json:"sidebarStatus"`
+	WorkspaceKind string `json:"workspaceKind"`
 	// ParentWorktreeID is the worktree this one is a child of in Orca's sidebar (its "N children"); empty for a top-level one.
 	ParentWorktreeID string `json:"parentWorktreeId"`
 	// Agents are the agents Orca's own hooks reported in the worktree's panes.
 	Agents []AgentRow `json:"agents"`
+}
+
+// WorktreeHeads reads Git identity in one catalog request, without inspecting terminals.
+// Old runtimes may not provide this optional display metadata.
+func (c *Client) WorktreeHeads(ctx context.Context) (map[string]string, error) {
+	var res struct {
+		Worktrees []struct {
+			ID   string `json:"id"`
+			Head string `json:"head"`
+		} `json:"worktrees"`
+	}
+	if err := c.Call(ctx, ListTimeout, "worktree.list", map[string]any{}, &res); err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(res.Worktrees))
+	for _, w := range res.Worktrees {
+		out[w.ID] = w.Head
+	}
+	return out, nil
 }
 
 // AgentRow is one agent of worktree.ps: its pane, kind and state from Orca's hooks.

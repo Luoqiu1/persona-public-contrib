@@ -52,7 +52,7 @@ nonisolated enum Theme {
         static let hovered = foreground.opacity(0.04)
         static let cardLeading: CGFloat = 10
         static let childInset: CGFloat = 10
-        static let statusLane: CGFloat = 12
+        static let statusLane: CGFloat = 16
         static let titleHeight: CGFloat = 20
         static let agentHeight: CGFloat = 24
         static let badgeHeight: CGFloat = 16

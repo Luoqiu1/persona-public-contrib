@@ -126,6 +126,7 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
             if active { RoundedRectangle(cornerRadius: Theme.WorkspaceSidebar.cardRadius).stroke(Theme.WorkspaceSidebar.border.opacity(0.4)) }
         }
         .onHover { hovered = $0 }
+        .accessibilityElement(children: .contain)
     }
 
     private var metadata: some View {

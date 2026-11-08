@@ -1056,6 +1056,9 @@ private struct AgentsList: View {
         // room between the search field and the filters is the row's own (`AgentsHeader.filtersMargin`). The split's
         // sidebar keeps its native content margins.
         .contentMargins(.top, widthClass == .regular ? nil : 0, for: .scrollContent)
+        #if os(macOS)
+        .contentMargins(.horizontal, grouping == .repo ? 0 : nil, for: .scrollContent)
+        #endif
         .environment(\.defaultMinListRowHeight, grouping == .repo ? Theme.Size.wellXS : compact ? 30 : 44)
         .environment(\.compactList, compact)
         #if DEBUG || PERF_SIGNPOST
@@ -1603,7 +1606,7 @@ private struct AgentsList: View {
                         WorkspaceSidebarCard(workspace: w, project: r.name, selectedSession: openedWorkspace == nil ? model.visibleSession : nil,
                                              selectedWorkspace: openedWorkspace, folded: { isFolded($0) }, toggle: { toggleFold($0) },
                                              open: { openedWorkspace = $0.key; openFromList($0) }, ordered: { ordered($0) }) { s in
-                            slotRow(s).simultaneousGesture(TapGesture().onEnded { openedWorkspace = nil })
+                            workspaceAgentButton(s)
                         }
                         .listRowInsets(EdgeInsets(top: 0, leading: Theme.Space.xs, bottom: Theme.Space.xs, trailing: Theme.Space.xs))
                         .listRowBackground(Color.clear).listRowSeparator(.hidden)
@@ -1747,6 +1750,35 @@ private struct AgentsList: View {
     }
 
     // MARK: Recently active
+
+    /// A control inside a workspace card is not a List row: row insets and swipe actions would apply to its parent cell.
+    private func workspaceAgentButton(_ s: Session) -> some View {
+        Button { openedWorkspace = nil; openFromList(s.key) } label: {
+            slotRowContent(s, context: false, inStateSection: false)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #if os(macOS)
+                .background {
+                    if s.key == macOpenNow && openedWorkspace == nil {
+                        RoundedRectangle(cornerRadius: Theme.Radius.control).fill(Theme.Fill.macSelected)
+                    }
+                }
+                #endif
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .macHoverShade(in: RoundedRectangle(cornerRadius: Theme.Radius.control), outset: 0)
+        #if os(macOS)
+        .macOptionClick { MacShellState.shared.chatWindow = s.key }
+        #endif
+        .accessibilityIdentifier(compact ? "agents.compactRow" : "agents.row")
+        .id(s.id)
+        .contextMenu {
+            AgentRowMenu(key: s.key, pinned: model.isPinned(s.key), muted: model.isMuted(s), looping: s.loop != nil,
+                         live: s.state.isLive, terminal: s.canTerminal, attachable: s.canAttach, deletable: s.canDelete,
+                         paneActions: NodeMenu.offersPaneActions(s), actions: rowActions).equatable()
+        }
+        .onAppear { if paginationArmed { Task { await model.sessionLists.appeared(s) } } }
+    }
 
     @ViewBuilder private func recentSection(_ sessions: [Session]) -> some View {
         if !sessions.isEmpty {

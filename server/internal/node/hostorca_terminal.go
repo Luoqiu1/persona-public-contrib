@@ -256,11 +256,22 @@ func orcaInputErr(err error) error {
 	return err
 }
 
-// errOrcaRename: Orca owns its worktrees' and tabs' names; Persona does not rename them.
-var errOrcaRename = fmt.Errorf("%w: Orca 里的工作区和标签页暂时不能从手机改名", host.ErrUnsupported)
+var errOrcaRename = fmt.Errorf("%w: Orca tab renaming is unavailable", host.ErrUnsupported)
 
-func (h *orcaHost) RenameSpace(context.Context, string, string) error { return errOrcaRename }
-func (h *orcaHost) RenameSlot(context.Context, string, string) error  { return errOrcaRename }
+func (h *orcaHost) RenameSpace(ctx context.Context, space, name string) error {
+	trees, _, _, err := h.c.Worktrees(ctx, "")
+	if err != nil {
+		return orcaErr(err)
+	}
+	for _, tree := range trees {
+		if tree.WorktreeID == space && (tree.HostID == "" || tree.HostID == "local") {
+			return orcaErr(h.c.RenameWorktree(ctx, space, name))
+		}
+	}
+	return fmt.Errorf("orca: the selected worktree is no longer available")
+}
+
+func (h *orcaHost) RenameSlot(context.Context, string, string) error { return errOrcaRename }
 
 // Close is terminal.close: Orca closes the pane (its tab when it was the only one). A terminal already gone counts as
 // closed.

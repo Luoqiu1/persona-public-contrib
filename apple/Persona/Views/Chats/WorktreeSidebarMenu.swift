@@ -13,6 +13,7 @@ struct WorktreeSidebarMenu: View, Equatable {
     var open: (HostWorkspace) -> Void
     var newSession: (HostWorkspace) -> Void
     var newChild: (HostWorkspace) -> Void
+    var rename: (HostWorkspace) -> Void = { _ in }
 
     /// Transcript pushes and workspace polling must not replace an open native menu.
     nonisolated static func == (a: Self, b: Self) -> Bool {
@@ -38,6 +39,11 @@ struct WorktreeSidebarMenu: View, Equatable {
             }
             .disabled(!workspace.online || !workspace.available)
             .accessibilityIdentifier("workspace.newChild")
+            Button { rename(workspace) } label: {
+                Label(String(localized: "worktree.rename", defaultValue: "Rename Worktree…"), systemImage: Theme.Icon.edit)
+            }
+            .disabled(!workspace.online || !workspace.available)
+            .accessibilityIdentifier("worktree.rename")
         }
         Section {
             Button { UIPasteboard.general.string = workspace.cwd } label: {
@@ -58,8 +64,6 @@ struct WorktreeSidebarMenu: View, Equatable {
         }
         if let agent {
             Section { agentMenu(agent) }
-        } else if sessions.count == 1, let session = sessions.first {
-            Section { agentMenu(session) }
         } else if !sessions.isEmpty {
             Section {
                 ForEach(sessions) { session in

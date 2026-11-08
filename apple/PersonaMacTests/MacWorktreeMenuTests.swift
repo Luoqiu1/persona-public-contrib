@@ -6,6 +6,7 @@ import Testing
 @MainActor struct MacWorktreeMenuTests {
     final class Actions {
         var parents: [String] = []
+        var renamed: [String] = []
     }
 
     private func session(_ id: String) throws -> Session {
@@ -63,7 +64,8 @@ import Testing
             if let workspace = tree.workspace {
                 WorktreeSidebarMenu(workspace: workspace, parent: workspace.parentKey == a.key ? a : nil,
                                     sessions: tree.sessions, agent: agent, menus: tree.sessions.map(agentMenu),
-                                    open: { _ in }, newSession: { _ in }, newChild: { actions.parents.append($0.key) }).equatable()
+                                    open: { _ in }, newSession: { _ in }, newChild: { actions.parents.append($0.key) },
+                                    rename: { actions.renamed.append($0.key) }).equatable()
             }
         }
         let host = NSHostingView(rootView: List { card.selectionDisabled() }.padding(.vertical, 60).environment(model))
@@ -97,6 +99,8 @@ import Testing
             let contents = items(shown)
             let createTitle = String(localized: "workspace.newChild", defaultValue: "New Child Worktree…")
             #expect(contents.filter { $0.title == createTitle }.count == 1)
+            let renameTitle = String(localized: "worktree.rename", defaultValue: "Rename Worktree…")
+            #expect(shown.items.filter { $0.title == renameTitle }.count == 1)
             #expect(contents.contains { $0.title == String(localized: "worktree.copyName", defaultValue: "Copy Worktree Name") })
             #expect(contents.contains { $0.title == String(localized: "worktree.openParent", defaultValue: "Open Parent Worktree") })
             #expect(contents.contains { $0.title == String(localized: "Copy Resume Command") })
@@ -118,7 +122,11 @@ import Testing
             shown.performActionForItem(at: create)
             RunLoop.main.run(until: Date().addingTimeInterval(0.02))
             #expect(actions.parents.last == b.key, "Creating from an Agent must use its owning child, never the root or Agent ID")
+            shown.performActionForItem(at: try #require(shown.items.firstIndex { $0.title == renameTitle }))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+            #expect(actions.renamed.last == b.key, "A worktree rename never targets its first Agent")
         }
         #expect(actions.parents == Array(repeating: b.key, count: 4))
+        #expect(actions.renamed == Array(repeating: b.key, count: 4))
     }
 }

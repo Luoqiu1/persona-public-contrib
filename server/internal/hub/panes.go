@@ -135,6 +135,7 @@ var nodeActions = map[string]nodeAction{
 	// #2431 "New worktree…": the repository of a workspace the host lists, and a Git worktree of it opened as a workspace.
 	// The branch and the path are typed in the dialog; the node refuses a path that holds something and never forces.
 	"worktree/prepare": {method: "worktree.prepare", timeout: 30 * time.Second, required: []string{"workspace_id"}, optional: []string{"kind"}},
+	"worktree/rename":  {method: "worktree.rename", timeout: 30 * time.Second, required: []string{"workspace_id", "name"}, optional: []string{"kind"}},
 	"worktree/create": {method: "worktree.create", timeout: 150 * time.Second, required: []string{"workspace_id"},
 		optional: []string{"kind", "parent_workspace_id", "branch", "path"}, flags: []string{"auto_name"},
 		requiredUnless: map[string][]string{"auto_name": {"branch", "path"}}},
@@ -161,6 +162,7 @@ func (h *Hub) paneRoutes(api *http.ServeMux) {
 	// #2431 "New worktree…": what the dialog starts from, and the worktree (full devices only, panes.go)
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/prepare", h.nodeAction(nodeActions["worktree/prepare"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/create", h.nodeAction(nodeActions["worktree/create"]))
+	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/rename", h.nodeAction(nodeActions["worktree/rename"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/add", h.nodeAction(nodeActions["worktree/add"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/status", h.nodeAction(nodeActions["worktree/status"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/remove", h.nodeAction(nodeActions["worktree/remove"]))

@@ -144,6 +144,7 @@ var actionBodies = map[string]string{
 	"tabs/close":       `{"tab_id":"w1:t2"}`,
 	"tabs/rename":      `{"tab_id":"w1:t2","label":"build"}`,
 	"worktree/prepare": `{"workspace_id":"w1"}`,
+	"worktree/rename":  `{"workspace_id":"w1","kind":"orca","name":"Renamed tree"}`,
 	"worktree/create":  `{"workspace_id":"w1","branch":"feat/x","path":"/tmp/wt/feat-x"}`,
 	"worktree/add":     `{"cwd":"/tmp/proj","name_hint":"fix the crash"}`,
 	"worktree/status":  `{"cwd":"/tmp/wt/persona-fix-the-crash"}`,
@@ -157,6 +158,21 @@ func postAction(h *Hub, role, path, body string) int {
 	w := httptest.NewRecorder()
 	h.nodeAction(nodeActions[path])(w, r)
 	return w.Code
+}
+
+func TestNodeActionsAreMountedOnTheHTTPRouter(t *testing.T) {
+	tn := newTermNode(t)
+	mux := http.NewServeMux()
+	tn.hub.paneRoutes(mux)
+	for path, body := range actionBodies {
+		r := httptest.NewRequest("POST", "/api/v1/machines/m1/"+path, strings.NewReader(body))
+		r = r.WithContext(context.WithValue(r.Context(), principalKey{}, principal{Role: roleFull, ID: "dev"}))
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Errorf("mounted route %s: HTTP %d", path, w.Code)
+		}
+	}
 }
 
 // Every one of them changes a computer: answer-only devices and extension tokens are refused before the node hears of
@@ -221,7 +237,8 @@ func TestNodeActionsPassOnlyTheirFields(t *testing.T) {
 		"panes/close": `{}`, "panes/split": `{"pane":"w1:p2"}`, "panes/agent": `{"pane":"w1:p2"}`, "panes/git": `{"pane":"w1:p2"}`,
 		"tabs/close": `{"tab_id":7}`, "tabs/rename": `{"tab_id":"w1:t2"}`, "panes/close ": `not json`,
 		"worktree/prepare": `{}`, "worktree/create": `{"workspace_id":"w1","branch":"feat/x"}`,
-		"worktree/add": `{"branch":"x"}`, "worktree/status": `{}`, "worktree/remove": `{"force":true}`,
+		"worktree/rename": `{"workspace_id":"w1"}`,
+		"worktree/add":    `{"branch":"x"}`, "worktree/status": `{}`, "worktree/remove": `{"force":true}`,
 	} {
 		path = strings.TrimSpace(path)
 		if code := postAction(h, roleFull, path, body); code != http.StatusBadRequest {

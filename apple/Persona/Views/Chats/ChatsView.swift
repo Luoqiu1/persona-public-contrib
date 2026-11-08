@@ -532,6 +532,7 @@ private struct AgentsList: View {
     @State private var creatingChild: HostWorkspace?
     @State private var createdWorktree: HostWorkspace?
     @State private var startingWorktree: HostWorkspace?
+    @State private var renamingWorktree: HostWorkspace?
     /// iPhone Duo's bars down the side: the shell's bar is the side rail, and the list needs no room for it at its top.
     @Environment(\.shellRailEdge) private var railEdge
     #if os(macOS)
@@ -1089,6 +1090,12 @@ private struct AgentsList: View {
         #endif
         .renameSpaceAlert($renamingSpace)
         .renameSessionAlert($renamingSession)
+        .sheet(item: $renamingWorktree) { workspace in
+            RenameWorktreeSheet(workspace: workspace) {
+                await workspaceCatalog.refresh(model.groupIDs) { model.api($0) }
+                await model.refresh()
+            }
+        }
         .confirmClose($closingSession)
         .confirmDeleteSession($deletingSession)
         .nodeActionPrompts()
@@ -1790,7 +1797,8 @@ private struct AgentsList: View {
                                 open: { target in
                                     if target.key == worktree.workspace?.key { openWorktree(worktree) }
                                     else { openWorktree(target) }
-                                }, newSession: { startingWorktree = $0 }, newChild: { creatingChild = $0 }).equatable()
+                                }, newSession: { startingWorktree = $0 }, newChild: { creatingChild = $0 },
+                                rename: { renamingWorktree = $0 }).equatable()
         }
     }
 

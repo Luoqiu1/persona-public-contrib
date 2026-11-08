@@ -418,23 +418,24 @@ func TestOrcaClose(t *testing.T) {
 	}
 }
 
-// Orca owns its worktrees' and tabs' names: renaming them is unsupported, with nothing sent to Orca.
-func TestOrcaRenameUnsupported(t *testing.T) {
+// A worktree rename changes only the named container and refuses missing targets.
+func TestOrcaRenameWorktrees(t *testing.T) {
 	n, o, _ := orcaSession(t)
-	for _, req := range []struct {
-		method string
-		params map[string]any
-	}{
-		{"space.rename", map[string]any{"workspace_id": "repo::" + orcaCwd, "name": "backend"}},
-		{"session.rename", map[string]any{"session_id": sidA, "tab_name": "review"}},
-	} {
-		_, err := request(t, n, req.method, req.params)
-		if err == nil || !strings.Contains(err.Error(), "unsupported") || !strings.Contains(err.Error(), "不能从手机改名") {
-			t.Errorf("%s: %v", req.method, err)
+	if _, err := request(t, n, "worktree.rename", map[string]any{"kind": "orca", "workspace_id": "repo::" + orcaCwd, "name": "  Backend work  "}); err != nil {
+		t.Fatal(err)
+	}
+	assertTrace(t, o.Trace("worktree.set"), []string{`worktree.set {"displayName":"Backend work","worktree":"id:repo::` + orcaCwd + `"}`})
+	if len(o.Trace("terminal.rename", "terminal.send")) != 0 {
+		t.Fatal("renaming a worktree touched its Agent")
+	}
+	o.Reset()
+	for _, body := range []map[string]any{{"kind": "orca", "workspace_id": "missing", "name": "Other"}, {"kind": "orca", "workspace_id": "repo::" + orcaCwd, "name": " "}, {"kind": "orca", "workspace_id": "repo::" + orcaCwd, "name": strings.Repeat("x", maxLabel+1)}} {
+		if _, err := request(t, n, "worktree.rename", body); err == nil {
+			t.Fatal("invalid worktree rename accepted")
 		}
 	}
-	if tr := o.Trace(); len(tr) != 0 {
-		t.Errorf("orca called: %v", tr)
+	if len(o.Trace("worktree.set", "terminal.rename", "terminal.send")) != 0 {
+		t.Fatal("a refused rename reached another target")
 	}
 }
 

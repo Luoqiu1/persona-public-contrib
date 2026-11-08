@@ -423,6 +423,11 @@ func (c *Client) SetPaneTitle(ctx context.Context, t Target, title string) error
 	return c.Call(ctx, CallTimeout, "terminal.setPaneTitle", p, nil)
 }
 
+// RenameWorktree changes only the sidebar display name, leaving its branch, path and parent alone.
+func (c *Client) RenameWorktree(ctx context.Context, id, name string) error {
+	return c.Call(ctx, CallTimeout, "worktree.set", map[string]any{"worktree": "id:" + id, "displayName": name}, nil)
+}
+
 // RepoAdd registers a new git repository or folder workspace with Orca.
 func (c *Client) RepoAdd(ctx context.Context, path, kind string) error {
 	return c.Call(ctx, CallTimeout, "repo.add", map[string]any{"path": path, "kind": kind}, nil)

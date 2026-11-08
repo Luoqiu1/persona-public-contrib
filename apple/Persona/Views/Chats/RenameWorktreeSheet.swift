@@ -28,7 +28,12 @@ struct RenameWorktreeSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(busy) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }
+                    Button { Task { await save() } } label: {
+                        Text("Save")
+                            #if os(iOS) || os(visionOS)
+                            .foregroundStyle(.white)
+                            #endif
+                    }
                         .formButton(prominent: true)
                         .disabled(busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .accessibilityIdentifier("worktree.rename.save")

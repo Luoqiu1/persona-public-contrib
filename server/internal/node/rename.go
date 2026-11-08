@@ -98,6 +98,16 @@ func (n *Node) renameSession(ctx context.Context, id string, tab, title *string)
 		if t == "" {
 			return fmt.Errorf("empty title")
 		}
+		if home, thread, codex := n.codexThread(id); codex {
+			if server := n.codexArchiveServer(id, home); server != nil {
+				call, cancel := context.WithTimeout(ctx, 30*time.Second)
+				defer cancel()
+				return server.wire.call(call, "thread/name/set", map[string]any{"threadId": thread, "name": t}, nil)
+			}
+			if !live {
+				return fmt.Errorf("%w: connect this Codex session before renaming it", host.ErrUnsupported)
+			}
+		}
 		if live && !n.isAssistantSession(id) {
 			return n.prompt(ctx, a.PaneID, "/rename "+t)
 		}

@@ -3664,18 +3664,19 @@ private struct RenameSessionAlert: ViewModifier {
     func body(content: Content) -> some View {
         content
             .alert("Rename [Chats View 0d0cba]", isPresented: Binding(get: { session != nil }, set: { if !$0 { session = nil } })) {
-                if session?.paneID != nil { TextField(String(localized: "Tab name (herdr tab)"), text: $tab) }
+                if let session, SessionRenameForm.showsTab(session) { TextField(String(localized: "Tab name (herdr tab)"), text: $tab) }
                 TextField(String(localized: "Session name"), text: $title)
                 Button("Cancel", role: .cancel) {}
                 Button("Save") {
                     guard let s = session else { return }
-                    let newTab = s.paneID != nil && tab != (s.slotName ?? "") ? tab : nil
-                    let newTitle = title != s.title ? title : nil
-                    guard newTab != nil || newTitle != nil else { return }
-                    Task { await model.renameSession(s.key, tab: newTab, title: newTitle) }
+                    let body = SessionRenameForm.body(s, tab: tab, title: title)
+                    guard body.tabName != nil || body.title != nil else { return }
+                    Task { await model.renameSession(s.key, tab: body.tabName, title: body.title) }
                 }
             } message: {
-                Text("The tab name syncs to herdr. The session name uses Claude's /rename, so claude --resume on the Mac shows it too.")
+                if let session, SessionRenameForm.showsTab(session) {
+                    Text("The tab name syncs to herdr. The session name uses Claude's /rename, so claude --resume on the Mac shows it too.")
+                }
             }
             .onChange(of: session?.id) { _, _ in
                 tab = session?.slotName ?? ""

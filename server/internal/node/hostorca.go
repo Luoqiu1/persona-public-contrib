@@ -24,7 +24,7 @@ import (
 // terminal.* calls take) are looked up from it. Spaces are worktrees, slots their tabs.
 //
 // Phase 1: listing, state (Orca's own hooks, polled), plain-text reads, typing, keys, prompts, process → session,
-// closing. No colors, no history, no live stream, no starting or renaming. The socket pushes nothing: no Watcher, the
+// closing, starting and explicit worktree/tab renames. No colors, no history, no live stream. The socket pushes nothing: no Watcher, the
 // node polls every second.
 //
 // Orca writes whatever it is sent into the terminal, and pastes a prompt only when it recognises an agent in front:

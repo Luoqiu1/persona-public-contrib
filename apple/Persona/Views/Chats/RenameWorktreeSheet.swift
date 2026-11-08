@@ -60,3 +60,15 @@ struct RenameWorktreeSheet: View {
         } catch { failure = error.shown ?? error.localizedDescription }
     }
 }
+
+nonisolated enum SessionRenameForm {
+    /// Only the legacy herdr/Claude dialog edits both a tab and the conversation. Other runtimes expose one name.
+    static func showsTab(_ session: Session) -> Bool {
+        session.paneID != nil && (session.hostKind ?? "herdr") == "herdr" && (session.agent ?? "claude") == "claude"
+    }
+
+    static func body(_ session: Session, tab: String, title: String) -> APIClient.RenameBody {
+        APIClient.RenameBody(tabName: showsTab(session) && tab != (session.slotName ?? "") ? tab : nil,
+                             title: title != session.title ? title : nil)
+    }
+}

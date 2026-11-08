@@ -1520,7 +1520,7 @@ extension APIClient {
         try await post("/api/v1/machines/\(machine)/spaces/\(workspaceID)/rename", body: ["name": name])
     }
 
-    struct RenameBody: Encodable {
+    nonisolated struct RenameBody: Encodable, Sendable {
         var tabName: String?
         var title: String?
         enum CodingKeys: String, CodingKey { case title; case tabName = "tab_name" }

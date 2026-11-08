@@ -101,6 +101,7 @@ import Testing
             #expect(contents.filter { $0.title == createTitle }.count == 1)
             let renameTitle = String(localized: "worktree.rename", defaultValue: "Rename Worktree…")
             #expect(shown.items.filter { $0.title == renameTitle }.count == 1)
+            #expect(contents.contains { $0.title == String(localized: "agent.rename", defaultValue: "Rename Agent…") })
             #expect(contents.contains { $0.title == String(localized: "worktree.copyName", defaultValue: "Copy Worktree Name") })
             #expect(contents.contains { $0.title == String(localized: "worktree.openParent", defaultValue: "Open Parent Worktree") })
             #expect(contents.contains { $0.title == String(localized: "Copy Resume Command") })

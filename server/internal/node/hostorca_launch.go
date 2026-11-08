@@ -222,4 +222,12 @@ func (h *orcaHost) Run(ctx context.Context, pane host.PaneRef, command string) e
 	return host.Mark(fmt.Errorf("orca: the newly created shell was replaced or is no longer writable"), host.ErrNotDelivered)
 }
 
-func (h *orcaHost) NameAgent(context.Context, host.PaneRef, string) error { return errOrcaRename }
+func (h *orcaHost) NameAgent(ctx context.Context, pane host.PaneRef, name string) error {
+	t, err := h.terminal(ctx, pane.ID, true)
+	if err != nil {
+		return orcaErr(err)
+	}
+	return orcaErr(h.onTerminal(ctx, t, true, func(target orcart.Target) error {
+		return h.c.RenameTerminal(ctx, target, name)
+	}))
+}

@@ -1,5 +1,8 @@
 # Codex support
 
+Agent renames use `thread/name/set` on a connected app-server for that Codex home, or `/rename` in a live terminal.
+They never write Claude's `custom-title` records into a Codex rollout. Worktree display names are separate host metadata.
+
 Codex (`codex` CLI) running in herdr appears in the "Agents" tab like Claude: lists, chats, live state, messaging, terminals, and closing all work,
 and it can also be started from the phone ("Starting from the phone"). Supported since 2026-10-26; `server/internal/node/codex.go` + `server/internal/transcript/codex.go`.
 

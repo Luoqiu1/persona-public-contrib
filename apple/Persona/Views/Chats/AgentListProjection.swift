@@ -93,6 +93,8 @@ nonisolated struct AgentListProjection: Sendable {
     var rows: [String: Rows] = [:]
     var quietWorktrees: [String: Bool] = [:]
     var menuSections: [String] = []
+    /// Searching can match an Agent-free worktree even when no session matches the query.
+    var hasSearchResults: Bool { !base.isEmpty || !tree.isEmpty }
 
     static func build(_ input: Input) -> Self {
         let settings = input.settings
@@ -152,6 +154,7 @@ nonisolated struct AgentListProjection: Sendable {
             }
             result.tree = RepoTree.build(result.unpinned.filter { $0.state.isLive }, machines: input.machines.map(\.ref),
                                          workspaces: catalog, includeEmpty: settings.filter == .all, search: settings.query)
+            result.byHost = settings.machine.isEmpty && result.tree.count > 1
             for host in result.tree {
                 for repo in host.repos {
                     let sessions = repo.sessions

@@ -824,7 +824,7 @@ private struct AgentsList: View {
         observedAgentList(
             agentList(base: base, filtered: filtered, unpinned: unpinned, pinnedAgents: pinnedAgents,
                       interactions: interactions, unreadShown: unreadShown, active: active, quiet: quiet,
-                      tree: tree, byHost: byHost),
+                      tree: tree, byHost: byHost, hasSearchResults: projection.hasSearchResults),
             base: base, interactions: interactions, quiet: quiet, matching: matching)
     }
 
@@ -832,7 +832,7 @@ private struct AgentsList: View {
     // the minimum compiler to solve each expression independently.
     private func agentList(base: [Session], filtered: [Session], unpinned: [Session], pinnedAgents: [Session],
                            interactions: [Interaction], unreadShown: [SessionKey], active: [SpaceGroup], quiet: [SpaceGroup],
-                           tree: [RepoTree.Host], byHost: Bool) -> some View {
+                           tree: [RepoTree.Host], byHost: Bool, hasSearchResults: Bool) -> some View {
         List {
             // On a phone the filter bar is the list's first row: it scrolls with the list, so the search field can
             // fold away and come back on a pull (a bar pinned in the safe area stayed put under a folded search field,
@@ -1004,21 +1004,21 @@ private struct AgentsList: View {
                 .listRowBackground(Color.clear)
             }
 
-            if base.isEmpty, !query.isEmpty {
+            if !hasSearchResults, !query.isEmpty {
                 // Nothing matches the search: not Start Your First Session with its New Session, which read as if the agents were gone.
                 Section {
                     EmptyStateView(symbol: Theme.Icon.search, title: String(localized: "No Results for “\(query)”"),
                                    message: String(localized: "You can search space, tab and session titles and content. Try another word."))
                 }
                 .listRowBackground(Color.clear)
-            } else if base.isEmpty, machineFilter.isEmpty, machines.isEmpty, model.canAddComputer {
+            } else if !hasSearchResults, machineFilter.isEmpty, machines.isEmpty, model.canAddComputer {
                 Section {
                     EmptyStateView(symbol: Theme.Icon.machines, title: Self.emptyNoComputerTitle, message: Self.emptyNoComputerMessage,
                                    action: (String(localized: "Add Computer"), { model.openAddComputer() }))
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(capsules ? .hidden : .automatic)
-            } else if base.isEmpty {
+            } else if !hasSearchResults {
                 Section {
                     EmptyStateView(symbol: Theme.Icon.agents,
                                    title: machineFilter.isEmpty ? String(localized: "Start Your First Session") : String(localized: "No Sessions on This Machine"),

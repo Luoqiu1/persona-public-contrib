@@ -1764,7 +1764,7 @@ private struct AgentsList: View {
 
     /// A control inside a workspace card is not a List row: row insets and swipe actions would apply to its parent cell.
     private func workspaceAgentButton(_ s: Session) -> some View {
-        Button { openedWorkspace = nil; openFromList(s.key) } label: {
+        Menu { workspaceAgentMenu(s) } label: {
             slotRowContent(s, context: false, inStateSection: false)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 #if os(macOS)
@@ -1775,20 +1775,22 @@ private struct AgentsList: View {
                 }
                 #endif
                 .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
+        } primaryAction: { openedWorkspace = nil; openFromList(s.key) }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
         .macHoverShade(in: RoundedRectangle(cornerRadius: Theme.Radius.control), outset: 0)
         #if os(macOS)
         .macOptionClick { MacShellState.shared.chatWindow = s.key }
+        .macBoundedContextMenu { workspaceAgentMenu(s) }
         #endif
         .accessibilityIdentifier(compact ? "agents.compactRow" : "agents.row")
         .id(s.id)
-        .contextMenu {
-            AgentRowMenu(key: s.key, pinned: model.isPinned(s.key), muted: model.isMuted(s), looping: s.loop != nil,
-                         live: s.state.isLive, terminal: s.canTerminal, attachable: s.canAttach, deletable: s.canDelete,
-                         paneActions: NodeMenu.offersPaneActions(s), actions: rowActions).equatable()
-        }
         .onAppear { if paginationArmed { Task { await model.sessionLists.appeared(s) } } }
+    }
+
+    private func workspaceAgentMenu(_ s: Session) -> some View {
+        AgentRowMenu(key: s.key, pinned: model.isPinned(s.key), muted: model.isMuted(s), looping: s.loop != nil,
+                     live: s.state.isLive, terminal: s.canTerminal, attachable: s.canAttach, deletable: s.canDelete,
+                     paneActions: NodeMenu.offersPaneActions(s), actions: rowActions).equatable()
     }
 
     @ViewBuilder private func recentSection(_ sessions: [Session]) -> some View {

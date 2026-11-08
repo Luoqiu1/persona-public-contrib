@@ -73,15 +73,7 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
             HStack(alignment: .top, spacing: Theme.Space.xxs) {
                 WorkspaceSidebarStatus(workspace: workspace)
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                    Menu {
-                        if let target = workspace.workspace {
-                            Button { newChild(target) } label: {
-                                Label(String(localized: "workspace.newChild", defaultValue: "New Child Workspace…"), systemImage: Theme.Icon.newWorktree)
-                            }
-                            .disabled(!target.online || !target.available)
-                            .accessibilityIdentifier("workspace.newChild")
-                        }
-                    } label: {
+                    Menu { workspaceActions } label: {
                         HStack(spacing: Theme.Space.sm) {
                             Text(workspace.name)
                                 .font(workspace.sidebarUnread ? Theme.WorkspaceSidebar.titleUnread : Theme.WorkspaceSidebar.title)
@@ -102,6 +94,9 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
                     } primaryAction: { if let target = workspace.workspace { open(target) } }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
                     .accessibilityIdentifier("agents.worktree")
+                    #if os(macOS)
+                    .macBoundedContextMenu { workspaceActions }
+                    #endif
                     metadata
                     if workspace.sessions.count > 1 {
                         agentDisclosure
@@ -137,6 +132,16 @@ struct WorkspaceSidebarCard<AgentContent: View>: View {
         }
         .onHover { hovered = $0 }
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder private var workspaceActions: some View {
+        if let target = workspace.workspace {
+            Button { newChild(target) } label: {
+                Label(String(localized: "workspace.newChild", defaultValue: "New Child Workspace…"), systemImage: Theme.Icon.newWorktree)
+            }
+            .disabled(!target.online || !target.available)
+            .accessibilityIdentifier("workspace.newChild")
+        }
     }
 
     private var metadata: some View {

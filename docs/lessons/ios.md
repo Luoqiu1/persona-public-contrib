@@ -1437,6 +1437,18 @@ A Mac `Form` can allocate a nested `TextField` to its label while the actual edi
 
 A worktree's display name and its Agents' conversation names are different commands. Do not reuse the first Agent's rename dialog for a container: keep an explicit container ID and a separate single-field action, with Agent actions in named submenus. The legacy herdr/Claude dialog's tab and conversation fields do not describe every runtime. Send only the applicable fields, and publish a local name change only after the server accepts it. A successful request must also be checked against the resulting host name; a menu opening or an optimistic list update proves neither persistence nor the target.
 
+## A picker's menu drops an option's second line; a DisclosureGroup's chevron ignores the tint (2026-11-09, #1643)
+
+- **Picker in a menu**: Run Agent Here wanted to say why a launcher is unavailable before it is picked. An option drawn as
+  `VStack { Text(name); Text(reason) }`, or a `Label` whose title is two `Text`s, shows only the first line in the
+  `Picker`'s menu (iOS 27 simulator; a `Menu` button's second `Text` does become a subtitle, a `Picker` option's does
+  not). What a picker menu does show is a `Section`'s title: the blocked launchers go under a section per reason
+  (`LauncherChoices.blockedByReason`), after the usable ones. The runtime CLI's `activate` cannot choose a menu item (it
+  needs a real touch through `idb`), so a DEBUG switch picks the launcher for the screenshot instead (`-showRunHereLauncher`).
+- **DisclosureGroup**: `.tint(.secondary)` on it leaves its chevron in the primary color, so a gray "Details" label sat
+  next to a black / white chevron that read as a navigation link. Use a borderless button with the expand / collapse icon
+  in `.secondary`, as `ReadinessCard`'s Details does.
+
 ## A menu inside a menu keeps the items it was first built with (2026-11-09, #1644)
 
 - **What went wrong**: the Persona chat's avatar menu nests "Launcher" › each launcher › its models. The models are read a moment after the bar comes up. An `.id` on the innermost menu (built from the list) was not enough: the "Launcher" menu around it had none, kept the launchers' submenus it was built with before the lists came in, and the claude submenu showed only Default and "Other Model…" for as long as the app ran, although the state had all ten models. Whether a run saw it depended on when the outer menu happened to be built first, so a passing UI test proved little.

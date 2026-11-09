@@ -91,3 +91,29 @@ func TestRolloutsMetasPruned(t *testing.T) {
 		t.Fatalf("metas after the older days are listed again: %d, want 3", n)
 	}
 }
+
+// Codex may create the rollout before it writes session_meta. An empty or partial
+// header must not become the immutable directory metadata used by start matching.
+func TestCodexRolloutsRetryIncompleteSessionMeta(t *testing.T) {
+	home := t.TempDir()
+	day := time.Now()
+	dir := filepath.Join(home, "sessions", day.Format("2006"), day.Format("01"), day.Format("02"))
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "rollout-"+startThread+".jsonl")
+	if err := os.WriteFile(path, []byte(`{"type":"session_meta","payload":`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_ = rollouts(home)
+	if err := os.WriteFile(path, []byte(`{"type":"session_meta","payload":{"id":"`+startThread+`","cwd":"/workspace"}}`+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	rolloutCaches.Lock()
+	cacheFor(home).at = time.Time{}
+	rolloutCaches.Unlock()
+	rows := rollouts(home)
+	if len(rows) != 1 || rows[0].cwd != "/workspace" {
+		t.Fatalf("completed session_meta stayed invisible: %+v", rows)
+	}
+}

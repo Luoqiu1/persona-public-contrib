@@ -604,3 +604,5 @@ A purpose-level model override does not change the managed launcher's default. L
   A new variable the node gives only the assistant goes into `assistantOnlyEnv`.
 - To see what an Agent really got, read its process environment (`ps -E -ww -o command= -p <pid>` on a Mac). Print the
   names only. Its Bash tool's `env` also shows what its own Claude added for its children.
+
+- A Codex rollout can exist before its first `session_meta` line is complete. Cache its immutable directory metadata only once the directory is known, or a successful Agent launch can time out waiting for a thread that is already answering.

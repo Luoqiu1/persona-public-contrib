@@ -176,7 +176,11 @@ func rollouts(home string) []codexRollout {
 		meta, ok := c.metas[f.path]
 		if !ok {
 			meta = readRolloutMeta(f.path)
-			c.metas[f.path] = meta
+			// A newly created rollout can still have an incomplete session_meta.
+			// Retry it next scan instead of caching an empty directory permanently.
+			if meta.cwd != "" {
+				c.metas[f.path] = meta
+			}
 		}
 		out = append(out, codexRollout{id: f.id, path: f.path, mtime: st.ModTime(), rolloutMeta: meta})
 	}

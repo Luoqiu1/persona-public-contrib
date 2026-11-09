@@ -380,9 +380,23 @@ func TestRuntimePaneSourceExtensionScope(t *testing.T) {
 
 func TestRuntimeOriginSummaryCompatibility(t *testing.T) {
 	summary := runtimeSummary(proto.Session{StartedByPersona: true, Host: "paseo", Background: []proto.BackgroundTask{{ID: "bg"}}})
-	raw, err := json.Marshal(summary)
+	// By value, by pointer and as a slice element: the last two would pick Session's promoted MarshalJSONTo.
+	for _, v := range []any{summary, &summary, []runtimeRowSummary{summary}} {
+		raw, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if raw[0] == '[' {
+			raw = raw[1 : len(raw)-1]
+		}
+		checkOriginSummaryWire(t, raw)
+	}
+}
+
+func checkOriginSummaryWire(t *testing.T, raw []byte) {
+	t.Helper()
 	var wire map[string]any
-	if err != nil || json.Unmarshal(raw, &wire) != nil {
+	if err := json.Unmarshal(raw, &wire); err != nil {
 		t.Fatal(err)
 	}
 	for key, want := range map[string]any{"started_by_persona": true, compat.StartedField: true, "pane_source": "desktop", "host": "paseo", "waiting": true, "background_count": float64(1)} {

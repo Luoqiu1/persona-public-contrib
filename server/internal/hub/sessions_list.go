@@ -2,6 +2,7 @@ package hub
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"slices"
@@ -146,6 +147,16 @@ func (s runtimeRowSummary) MarshalJSON() ([]byte, error) {
 		RunningSubagents int    `json:"running_subagents,omitempty"`
 		RunningWorkflows int    `json:"running_workflows,omitempty"`
 	}{s.PaneSource, s.Waiting, s.BackgroundCount, s.RunningSubagents, s.RunningWorkflows}), nil
+}
+
+// MarshalJSONTo shadows the promoted (*proto.Session).MarshalJSONTo, which encoding/json prefers for an addressable
+// summary (a pointer, a slice element) and which would drop the fields beside the session.
+func (s *runtimeRowSummary) MarshalJSONTo(enc *jsontext.Encoder) error {
+	b, err := s.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	return enc.WriteValue(b)
 }
 
 func runtimeSummary(s proto.Session) runtimeRowSummary {

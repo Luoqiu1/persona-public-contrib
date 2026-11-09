@@ -1,0 +1,7 @@
+{
+  "node_outdated": "Update personad on this computer to use Codex permission controls.",
+  "codex_permission_conflict": "The launcher already selects permissions or a profile. Follow the launcher or choose one without permission overrides.",
+  "codex_launch_preferences": "Could not safely apply Orca’s launch preferences. Update Orca or select an explicitly configured launcher.",
+  "codex_permissions_invalid": "Choose a supported Codex session permission policy.",
+  "codex_permissions_unsupported": "This connection cannot change Codex permissions. Use the original app or terminal, or update Codex and reconnect."
+}

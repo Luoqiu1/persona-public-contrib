@@ -521,25 +521,36 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 		TabName          *string       `json:"tab_name"`
 		TZ               string        `json:"tz"` // the user's time zone
 		// HTTP is a quota plugin's request to send to a launcher's gateway (launchers.http); nil asks for the gateway.
-		HTTP           *quota.Request  `json:"http,omitempty"`
-		Async          bool            `json:"async"`
-		Title          *string         `json:"title"`
-		PermissionMode string          `json:"permission_mode"`
-		Effort         string          `json:"effort"`
-		Ultracode      *bool           `json:"ultracode"`
-		DismissLost    bool            `json:"dismiss_lost"`
-		ResumeOnly     bool            `json:"resume_only"`
-		IsMain         bool            `json:"is_main"`
-		AtItemID       string          `json:"at_item_id"` // session.fork: the reply to branch off at
-		Refresh        bool            `json:"refresh"`    // launchers.models: ask again, not the kept list
-		Configured     bool            `json:"configured"` // launchers.models, .probe, .http, .model.check: hub.json names this launcher
-		Guest          *guestParams    `json:"guest"`      // assistant.send: a new guest conversation (assistant_guest.go)
-		Raw            json.RawMessage `json:"-"`
+		HTTP             *quota.Request  `json:"http,omitempty"`
+		Async            bool            `json:"async"`
+		Title            *string         `json:"title"`
+		CodexPermissions *string         `json:"codex_permissions"`
+		PermissionMode   string          `json:"permission_mode"`
+		Effort           string          `json:"effort"`
+		Ultracode        *bool           `json:"ultracode"`
+		DismissLost      bool            `json:"dismiss_lost"`
+		ResumeOnly       bool            `json:"resume_only"`
+		IsMain           bool            `json:"is_main"`
+		AtItemID         string          `json:"at_item_id"` // session.fork: the reply to branch off at
+		Refresh          bool            `json:"refresh"`    // launchers.models: ask again, not the kept list
+		Configured       bool            `json:"configured"` // launchers.models, .probe, .http, .model.check: hub.json names this launcher
+		Guest            *guestParams    `json:"guest"`      // assistant.send: a new guest conversation (assistant_guest.go)
+		Raw              json.RawMessage `json:"-"`
 	}
 	if len(params) > 0 {
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, fmt.Errorf("bad params: %w", err)
 		}
+	}
+	if method == "session.start_codex" {
+		if p.CodexPermissions == nil || p.Async || p.ResumeSessionID != "" || p.PermissionMode != "" || p.Effort != "" {
+			return nil, refusal("codex_permissions_invalid", "Invalid Codex start request", nil)
+		}
+		if _, err := codexPermissionFlags(*p.CodexPermissions); err != nil {
+			return nil, err
+		}
+		method = "session.start"
+		p.AgentType = "codex"
 	}
 	if n.codexBlocked(p.SessionID) && (strings.HasPrefix(method, "session.") || strings.HasPrefix(method, "terminal.") || method == "assistant.send" || method == "assistant.permissions.reset") {
 		return nil, refusal("identity_conflict", "会话 ID 与另一来源重复，不能判断操作目标；未读取或发送", nil)
@@ -815,6 +826,9 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 		}
 		rp := runtimeStartParams{Cwd: p.Cwd, Prompt: p.Prompt, Launcher: p.Launcher, Model: p.Model, PermissionMode: p.PermissionMode,
 			Effort: p.Effort, WorkspaceID: p.WorkspaceID, Resume: p.ResumeSessionID}
+		if p.CodexPermissions != nil && (n.runtimes.launcherRuntime(p.Launcher) != nil && !shellLauncherNames()[p.Launcher] || engineRuntimes[n.startKind(withStartHost(ctx, p.Host))] != "") {
+			return nil, refusal("codex_permissions_unsupported", "This runtime does not support Codex Agent permission overrides", nil)
+		}
 		if p.ResumeSessionID == "" {
 			if s, err, ok := n.runtimeStart(ctx, rp); ok { // a runtime's launcher
 				return map[string]any{"session": s}, err
@@ -830,10 +844,10 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 		}
 		// Only Claude Code has a session id before it starts; another agent picks its own (start_agent.go).
 		if p.Async && p.ResumeSessionID == "" && (p.AgentType == "" || p.AgentType == "claude") {
-			s, err := n.startAsyncIn(p.Host, p.SessionID, p.Cwd, p.Launcher, p.Prompt, p.WorkspaceID, p.PermissionMode, p.Effort, tab, modelExecution{Model: p.Model, Effort: p.Effort, UseEffort: p.ModelFingerprint != "", Fingerprint: p.ModelFingerprint, Ultracode: p.Ultracode})
+			s, err := n.startAsyncIn(p.Host, p.SessionID, p.Cwd, p.Launcher, p.Prompt, p.WorkspaceID, p.PermissionMode, p.Effort, tab, modelExecution{Model: p.Model, Effort: p.Effort, UseEffort: p.ModelFingerprint != "", Fingerprint: p.ModelFingerprint, Ultracode: p.Ultracode, CodexPermissions: p.CodexPermissions})
 			return map[string]any{"session": s}, err
 		}
-		s, err := n.start(ctx, p.Cwd, p.Launcher, p.Prompt, p.ResumeSessionID, p.WorkspaceID, p.PermissionMode, p.Effort, tab, "", p.AgentType, modelExecution{Model: p.Model, Effort: p.Effort, UseEffort: p.ModelFingerprint != "", Fingerprint: p.ModelFingerprint, Ultracode: p.Ultracode})
+		s, err := n.start(ctx, p.Cwd, p.Launcher, p.Prompt, p.ResumeSessionID, p.WorkspaceID, p.PermissionMode, p.Effort, tab, "", p.AgentType, modelExecution{Model: p.Model, Effort: p.Effort, UseEffort: p.ModelFingerprint != "", Fingerprint: p.ModelFingerprint, Ultracode: p.Ultracode, CodexPermissions: p.CodexPermissions})
 		return map[string]any{"session": s}, err
 	case "session.fork": // "Branch to new chat" (fork.go)
 		id, err := n.fork(ctx, p.SessionID, p.AtItemID)

@@ -7,6 +7,7 @@ import (
 // sessionRoutes are the conversations: the list, starting one, its items, and what the user does in it.
 func (h *Hub) sessionRoutes(api *http.ServeMux) {
 	api.HandleFunc("GET /api/v1/sessions", h.listSessions)
+	api.HandleFunc("POST /api/v1/sessions/codex", h.withClientOp("start", h.startSession))
 	api.HandleFunc("POST /api/v1/sessions", h.withClientOp("start", h.startSession))
 	api.HandleFunc("GET /api/v1/sessions/{mid}/{sid}/items", h.withMachine(h.sessionItems))
 	api.HandleFunc("GET /api/v1/sessions/{mid}/{sid}/items/{iid}/image", h.withMachine(h.sessionImage))

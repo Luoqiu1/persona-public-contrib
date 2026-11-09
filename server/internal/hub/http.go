@@ -676,10 +676,11 @@ func (h *Hub) startSession(w http.ResponseWriter, r *http.Request) {
 		WorkspaceID     string `json:"workspace_id"`
 		// Host: the machine's enabled engine host to open in (herdr, orca, paseo…; #2576); empty: its default host.
 		// Checked by the node (an older node ignores it and starts in its engine).
-		Host           string `json:"host,omitempty"`
-		PermissionMode string `json:"permission_mode,omitempty"`
-		Effort         string `json:"effort,omitempty"`
-		Ultracode      *bool  `json:"ultracode,omitempty"`
+		Host             string  `json:"host,omitempty"`
+		CodexPermissions *string `json:"codex_permissions,omitempty"`
+		PermissionMode   string  `json:"permission_mode,omitempty"`
+		Effort           string  `json:"effort,omitempty"`
+		Ultracode        *bool   `json:"ultracode,omitempty"`
 		// TabName names the herdr tab; empty: one made from the first message (tabName, assistant/agents_start.go),
 		// else agent-<n>.
 		TabName string `json:"tab_name,omitempty"`
@@ -696,6 +697,10 @@ func (h *Hub) startSession(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		writeBodyErr(w, err, err)
+		return
+	}
+	if r.URL.Path == "/api/v1/sessions/codex" && p.CodexPermissions == nil {
+		writeErr(w, http.StatusBadRequest, i18n.Err("hub-codex-permissions.codex_permissions_invalid"))
 		return
 	}
 	if p.TodoID != "" && principalOf(r.Context()).Role != roleFull {
@@ -779,9 +784,20 @@ func (h *Hub) startSession(w http.ResponseWriter, r *http.Request) {
 		callErr(w, err) // 503 assistant_offline without the manager (the machine is its to reach), else 502
 		return
 	}
-	if err := m.call(ctx, "session.start", params, &res); err != nil {
+	method := "session.start"
+	if p.CodexPermissions != nil {
+		method = "session.start_codex"
+	}
+	if err := m.call(ctx, method, params, &res); err != nil {
+		if p.CodexPermissions != nil {
+			err = codexPermissionNodeError(err)
+		}
 		h.startEnded(m.cfg.ID, p.ResumeSessionID, params, err)
-		callErr(w, apierr.OnMachine(err, m.name())) // a launcher the new tab cannot run "on <name>'s MacBook"
+		if p.CodexPermissions != nil {
+			codexPermissionError(w, err)
+		} else {
+			callErr(w, apierr.OnMachine(err, m.name()))
+		} // a launcher the new tab cannot run "on <name>'s MacBook"
 		return
 	}
 	if !async {

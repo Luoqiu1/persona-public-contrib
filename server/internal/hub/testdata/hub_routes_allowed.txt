@@ -181,3 +181,6 @@ PUT /api/v1/machines/{mid}/codex-settings
 PUT /api/v1/machines/{mid}/omp-settings
 PUT /api/v1/mutes
 PUT /api/v1/pins
+
+# Codex Agent permission transport; settings are applied only by the owning node.
+POST /api/v1/sessions/codex

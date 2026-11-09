@@ -594,6 +594,7 @@ nonisolated struct APIClient: Sendable {
         var resumeSessionID: String?
         var workspaceID: String?
         var permissionMode: String? = nil
+        var codexPermissions: String? = nil
         var effort: String? = nil
         /// The model picked in New Agent for this start (`LauncherModels`); nil: the launcher's, or Model Settings'.
         var model: String? = nil
@@ -609,6 +610,7 @@ nonisolated struct APIClient: Sendable {
         var ultracode: Bool? = nil
         enum CodingKeys: String, CodingKey {
             case cwd, launcher, prompt, effort, async, model, ultracode
+            case codexPermissions = "codex_permissions"
             case machineID = "machine_id", resumeSessionID = "resume_session_id", workspaceID = "workspace_id",
                  permissionMode = "permission_mode", tabName = "tab_name", nameHint = "name_hint", todoID = "todo_id"
         }
@@ -617,7 +619,7 @@ nonisolated struct APIClient: Sendable {
     func start(_ req: StartRequest) async throws -> Session {
         var body = req
         body.prompt = req.prompt.map { HubNaming.outbound($0, canonical: personaNaming) }
-        return stamp(try await post("/api/v1/sessions", body: body, timeout: req.async == true ? 20 : 110, as: SessionResponse.self).session)
+        return stamp(try await post(req.codexPermissions == nil ? "/api/v1/sessions" : "/api/v1/sessions/codex", body: body, timeout: req.async == true ? 20 : 110, as: SessionResponse.self).session)
     }
 
     private func sp(_ k: SessionKey) -> String { "/api/v1/sessions/\(k.machineID)/\(k.sessionID)" }

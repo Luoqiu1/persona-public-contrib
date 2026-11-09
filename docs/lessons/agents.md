@@ -606,3 +606,5 @@ A purpose-level model override does not change the managed launcher's default. L
   names only. Its Bash tool's `env` also shows what its own Claude added for its children.
 
 - A Codex rollout can exist before its first `session_meta` line is complete. Cache its immutable directory metadata only once the directory is known, or a successful Agent launch can time out waiting for a thread that is already answering.
+
+- Codex permission/profile refusals and an old-node capability refusal must not count as launcher failures: the request was refused before the launcher ran.

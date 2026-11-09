@@ -1,0 +1,7 @@
+{
+  "node_outdated": "Codex の権限制御を使うには、このコンピュータの personad を更新してください。",
+  "codex_permission_conflict": "ランチャーは権限またはプロファイルを指定済みです。ランチャーに従うか、権限の上書きがないものを選んでください。",
+  "codex_launch_preferences": "Orca の起動設定を安全に適用できません。Orca を更新するか、明示的に設定したランチャーを選んでください。",
+  "codex_permissions_invalid": "対応する Codex セッションの権限設定を選んでください。",
+  "codex_permissions_unsupported": "この接続では Codex の権限を変更できません。元のアプリやターミナルで操作するか、Codex を更新して再接続してください。"
+}

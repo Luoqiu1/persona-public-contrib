@@ -194,7 +194,7 @@ The entry point is the same as Claude's (machine, directory, launcher); subseque
 - **Route**: bare `codex` 0.163 (or an alias without the following arguments) runs on the shared daemon and joins within seconds; "Connection" in "Session Info" shows app-server.
   Launchers with `-c` / `--profile` / `--enable` / `--disable` / `--oss` / `--strict-config` / `--no-daemon` run in their own process using the terminal route (#214).
   "Connection" explains "Started with launcher 'X': it includes -c, so Codex runs in its own process, not the shared app-server". Version 0.153 has no daemon and also uses the terminal route.
-- **Not offered**: permission mode / thinking effort selection at creation (Codex uses launcher arguments and `~/.codex/config.toml`; effort can be changed in-chat after joining app-server, see "Thinking effort"). Resuming an existing session: see "Resuming from the phone" below.
+- **Not offered**: thinking effort selection at creation (Codex uses launcher arguments and `~/.codex/config.toml`; effort can be changed in-chat after joining app-server, see "Thinking effort"). Resuming an existing session: see "Resuming from the phone" below.
 - **Tests**: `node/codex_start_test.go` (fake herdr: pane command only `codex-start <file>`, file contains launcher words and message, exactly one session, route note, rejection, timeout and startup failure errors, trust dialogs,
   `codex-start` subprocess receives message byte-for-byte, Codex aliases in `~/.zshrc`). Real Codex: `TestLiveCodexStart` in `scripts/test/test-codex.sh`
   (0.163 connected with `--remote` to the test's own app-server, 0.153, 0.163 with `-c`; multiple turns each, messages with quotes / newlines / `$` / backticks / Chinese / long text,
@@ -298,7 +298,7 @@ herdr reports blocked when Codex has an unanswered async question, so `agent pro
 
 - Resuming from the phone covers a thread nothing has open in the default home ("Resuming from the phone"). Offline / archived history on external app-server instances is read-only; never silently start another app-server to continue it. Codex App threads continue only through the App.
 - Threads archived only in Codex (the Codex App's Archive) are not listed in Persona's archive; only Persona's own archives are mirrored to Codex ("Archive").
-- Starting Codex from the phone requires the first message. Shell functions running Codex, aliases doing other work, and the internal fork cannot be used to start sessions; permission mode and thinking effort cannot be selected at creation.
+- Starting Codex from the phone requires the first message. Shell functions running Codex, aliases doing other work, and the internal fork cannot be used to start sessions; Codex permissions can be selected at creation; thinking effort remains a launcher preference.
 - Permission mode cannot be changed on the phone. Only app-server sessions can change thinking effort ("Thinking effort"); terminal-route Codex and the internal fork cannot.
 - Sessions started by launchers with arguments such as `-c` are not on the shared daemon and use only the terminal route (screen reading, typing).
 - Unrecognized Codex dialogs (not matching "Questions and approvals" above) retain generic "Terminal needs attention" screen interactions.
@@ -394,3 +394,11 @@ Read codex-rs source tags `rust-v0.153.4` / `rust-v0.163.0`, plus binaries for b
     "allow with rewritten input", not a plain allow. An inferred workaround is to use the phone answer as a denial reason, which the model reads as tool output, but the question never appears in the terminal. `notify` has only `agent-turn-complete`.
 - **Conclusion**: `PermissionRequest` can handle approvals in both versions, in-process and on the daemon. But it is mutually exclusive with "the computer user can answer first." This implementation therefore uses screen-reading cards,
   allowing either computer or phone to answer first. After B is implemented, both can answer without this hook. Before then, if fast phone answers matter more, reevaluate it as an optional short-timeout path.
+
+### Agent permission choices
+
+New Agent offers **Follow Engine or Launcher** (the default), **Read Only**, **Workspace Access** and **Full Access** for Codex. These are session choices, separate from Claude Code modes and the assistant's defaults. Read Only and Workspace Access use `on-request` approval with the user as reviewer; Workspace Access restricts network access. Full Access uses `never` approval and `danger-full-access`. No choice changes a global preference.
+
+The stock `codex` launcher on Orca reads `settings.getAgentLaunch` and executes its projected `agentDefaultArgs`. Persona does not infer permissions from a worktree parent. Custom aliases and Persona-managed launchers preserve their own arguments/configuration. An explicit session choice conflicts with an existing permission flag or profile and is refused before a terminal opens; select Follow Engine or Launcher to preserve that configuration. Custom Orca commands/environments or shell-dependent arguments require an explicitly configured launcher rather than partial preference copying. An unavailable or older Orca preference API is refused without falling back to different defaults.
+
+Creation uses the distinct `session.start_codex` node RPC, so an older node cannot silently ignore a permission choice. The HTTP route is `POST /api/v1/sessions/codex`, with `codex_permissions` including an empty string for Follow Engine or Launcher. Older clients keep their original creation contract.

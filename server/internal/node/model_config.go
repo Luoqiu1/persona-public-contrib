@@ -12,11 +12,12 @@ import (
 
 // modelExecution is non-secret per-turn execution metadata supplied by the hub.
 type modelExecution struct {
-	Model       string
-	Effort      string
-	UseEffort   bool
-	Fingerprint string
-	Ultracode   *bool `json:"-"` // explicit TUI start request; never a default or execution fingerprint
+	Model            string
+	Effort           string
+	UseEffort        bool
+	Fingerprint      string
+	CodexPermissions *string `json:"-"`
+	Ultracode        *bool   `json:"-"` // explicit TUI start request; never a default or execution fingerprint
 	// Runtime: the assistant's runtime, proto.AssistantRuntimeAgentSDK or "" (the CLI; "cli" reads as ""). Omitted
 	// when empty so a fingerprint from before #2455 stays the same.
 	Runtime string `json:",omitempty"`

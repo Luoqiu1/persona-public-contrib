@@ -31,6 +31,7 @@ struct NewChatView: View {
     @State private var defaultLauncher = ""
     /// Model Settings › New Agent's model: what runs with no pick when its launcher does.
     @State private var configuredModel = ""
+    @State private var codexPermissions = ""
     @State private var mode = ""   // "" = whatever the launcher uses
     @State private var effort = ""
     /// Claude Code's ultracode for this start (#1307): off each time the sheet opens and never saved, unlike the effort
@@ -264,7 +265,8 @@ struct NewChatView: View {
                     Text(modelChoice?.canPick == true ? String(localized: "\(about) Models are the same as what /model shows in the terminal.") : about)
                 }
 
-                if !codex { // Claude Code's modes; a Codex keeps its own
+                if codex { CodexPermissionPicker(choice: $codexPermissions) }
+                if !codex { // Claude Code modes stay separate from Codex approval/sandbox policies
                     Section {
                         Picker(selection: $mode) {
                             Text("Use Launcher's").tag("")
@@ -668,7 +670,7 @@ struct NewChatView: View {
                 // Codex picks its thread's id once it has the first message: it goes with the start, which answers
                 // with that thread (one session, already working on it).
                 let s = try await api.start(.init(machineID: ref.id, cwd: dir, launcher: launcher, prompt: contextBlock == nil ? prompt : outgoing,
-                                                  workspaceID: preset?.workspaceID, model: sentModel, tabName: name.isEmpty ? nil : name,
+                                                  workspaceID: preset?.workspaceID, codexPermissions: codexPermissions, model: sentModel, tabName: name.isEmpty ? nil : name,
                                                   nameHint: nameHint ?? (p.isEmpty ? nil : p), todoID: todoID))
                 UserDefaults.standard.set(launcher, forKey: "launcher.\(machineID)")
                 UserDefaults.standard.set(cwd, forKey: "cwd.\(machineID)")

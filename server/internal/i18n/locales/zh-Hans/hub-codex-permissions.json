@@ -1,0 +1,7 @@
+{
+  "node_outdated": "请更新这台电脑上的 personad 后使用 Codex 权限控制。",
+  "codex_permission_conflict": "启动器已设置权限或配置方案。请跟随启动器，或选择没有权限覆盖的启动器。",
+  "codex_launch_preferences": "无法安全应用 Orca 的启动偏好。请更新 Orca，或选择已明确配置的启动器。",
+  "codex_permissions_invalid": "请选择受支持的 Codex 会话权限策略。",
+  "codex_permissions_unsupported": "此连接无法更改 Codex 权限。请在原应用或终端中操作，或更新 Codex 后重新连接。"
+}

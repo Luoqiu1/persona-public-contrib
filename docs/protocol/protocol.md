@@ -3025,3 +3025,8 @@ and `/items/{iid}/full` all carry it. Recognition is by text, so old messages an
 Other "not user-written" messages already have their own shapes and aren't covered here: messages from another chat (`<persona-context title="来自对话「x」">`, "From chat 'x'"), background for resuming the old main chat (`<persona-context title="接上旧主对话">`, "Resume the old main chat")
 are gathered as "Context" by the tags above; background-task notifications use `kind:"notice"` + `task`; `/model`, compaction and similar notices use `kind:"notice"`.
 
+
+
+### Codex Agent permissions
+
+`POST /api/v1/sessions/codex` requires `codex_permissions`: `""` follows the engine/launcher; `read-only`, `workspace-write` and `full-access` are explicit session policies. All other start fields retain the ordinary start shape. The hub uses `session.start_codex`, so an older node cannot ignore the new field and report success. It returns `409 node_outdated` when that RPC is unavailable.

@@ -101,6 +101,10 @@ func (n *Node) start(ctx context.Context, cwd, launcher, prompt, resume, workspa
 		if resume != "" { // a Codex thread is resumed above: this id is not one
 			return nil, refusal(codexResumeRefused, "找不到这个 Codex 会话的记录，没法接着它：请在电脑上恢复（codex resume）。", nil)
 		}
+		argv, err = n.codexLaunchPermissions(ctx, launch, launcher, argv, execution.CodexPermissions)
+		if err != nil {
+			return nil, err
+		}
 		if execution.Model != "" {
 			argv = append(withoutModelArgs(argv), "--model", execution.Model)
 		}
@@ -108,6 +112,9 @@ func (n *Node) start(ctx context.Context, cwd, launcher, prompt, resume, workspa
 			return nil, errors.New("新建 Codex 的思考强度由其启动器管理，请将此用途的思考强度恢复继承")
 		}
 		return n.startCodex(ctx, launch, cwd, launcher, argv, prompt, ws, tabName)
+	}
+	if execution.CodexPermissions != nil {
+		return nil, refusal("codex_permissions_unsupported", "Codex permissions require a Codex launcher", nil)
 	}
 	if kind != "claude" { // start_agent.go
 		if mode != "" || effort != "" {

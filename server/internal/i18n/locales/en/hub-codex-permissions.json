@@ -2,6 +2,10 @@
   "node_outdated": "Update personad on this computer to use Codex permission controls.",
   "codex_permission_conflict": "The launcher already selects permissions or a profile. Follow the launcher or choose one without permission overrides.",
   "codex_launch_preferences": "Could not safely apply Orca’s launch preferences. Update Orca or select an explicitly configured launcher.",
+  "codex_permissions_unsupported": "This connection cannot change Codex permissions. Use the original app or terminal, or update Codex and reconnect.",
+  "codex_permissions_busy": "Wait until Codex is idle and any approval request is resolved before changing permissions.",
+  "codex_permissions_unconfirmed": "Codex has not confirmed the requested permissions. Refresh to inspect the current policy.",
   "codex_permissions_invalid": "Choose a supported Codex session permission policy.",
-  "codex_permissions_unsupported": "This connection cannot change Codex permissions. Use the original app or terminal, or update Codex and reconnect."
+  "codex_permissions_unavailable": "Could not verify Codex permissions. Refresh after the connection recovers.",
+  "identity_conflict": "This session has conflicting identities. No permissions were read or changed."
 }

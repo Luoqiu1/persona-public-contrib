@@ -3026,7 +3026,8 @@ Other "not user-written" messages already have their own shapes and aren't cover
 are gathered as "Context" by the tags above; background-task notifications use `kind:"notice"` + `task`; `/model`, compaction and similar notices use `kind:"notice"`.
 
 
-
 ### Codex Agent permissions
 
 `POST /api/v1/sessions/codex` requires `codex_permissions`: `""` follows the engine/launcher; `read-only`, `workspace-write` and `full-access` are explicit session policies. All other start fields retain the ordinary start shape. The hub uses `session.start_codex`, so an older node cannot ignore the new field and report success. It returns `409 node_outdated` when that RPC is unavailable.
+
+`GET /api/v1/sessions/{mid}/{sid}/codex-permissions` reads `session.codex_permissions`. POST to the same path takes `{ "choice": "workspace-write" }` and maps it to `codex_permissions` on that RPC. The response has `approval_policy?`, `sandbox?`, `reviewer?`, `network_access`, `authoritative`, `choices` and `reason?`. Empty `choices` means no change is offered; `authoritative: false` means historical policy only. Reasons include `terminal`, `readback`, `unsupported` and `busy`. Only the original joined app-server may update the thread, with confirmed readback and no queued or terminal fallback. See [Codex integration](../integrations/codex.md#agent-permission-choices).

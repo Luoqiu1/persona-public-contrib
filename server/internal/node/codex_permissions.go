@@ -2,11 +2,15 @@ package node
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/nwverse/persona/server/internal/host"
 	"github.com/nwverse/persona/server/internal/orcart"
+	"github.com/nwverse/persona/server/internal/proto"
 )
 
 // Codex permissions are independent of Claude's permission modes. Empty means follow
@@ -121,4 +125,159 @@ func (n *Node) codexLaunchPermissions(ctx context.Context, launch host.Launcher,
 		argv = append(argv, args...)
 	}
 	return argv, nil
+}
+
+// codexPermissions reads the server's effective thread settings using a resume with
+// no overrides. It never types into a terminal, changes global config or queues a policy
+// for a later turn. A missing method/readback remains unsupported, never a successful write.
+func (n *Node) codexPermissions(ctx context.Context, id string, choice *string) (*proto.CodexPermissions, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	if choice != nil {
+		if _, err := codexPermissionFlags(*choice); err != nil || *choice == "" {
+			return nil, refusal("codex_permissions_invalid", "Invalid Codex permission choice", nil)
+		}
+	}
+	out := &proto.CodexPermissions{Reason: "terminal", Choices: []string{}}
+	if n.isAssistantSession(id) {
+		return nil, refusal("codex_permissions_unsupported", "Codex Agent permissions do not apply to assistant conversations", nil)
+	}
+	c, t, err := n.codexOwner(id)
+	if err != nil || t.parent != "" || !t.joined {
+		if choice != nil {
+			return nil, refusal("codex_permissions_unsupported", "This session has no supported Codex permission connection. Change permissions in its original app or terminal.", nil)
+		}
+		if m := n.metaOf(id); n.codexPath(id) != "" {
+			out.ApprovalPolicy, out.Sandbox = m.mode, m.sandbox
+		}
+		return out, nil
+	}
+	defer c.joins.lock("permissions:" + t.id)()
+	// Refresh the owner after acquiring the write lock; reconnects must not redirect writes.
+	owner, current, err := n.codexOwner(id)
+	if err != nil || owner != c || current.id != t.id {
+		return nil, refusal("codex_permissions_unavailable", "Codex connection changed; refresh and try again", nil)
+	}
+	read := func() error {
+		loaded, err := c.loaded(ctx)
+		if err != nil || !slices.Contains(loaded, t.id) {
+			return errCodexNoOwner
+		}
+		var res struct {
+			Thread   remoteThreadData `json:"thread"`
+			Approval json.RawMessage  `json:"approvalPolicy"`
+			Reviewer string           `json:"approvalsReviewer"`
+			Sandbox  json.RawMessage  `json:"sandbox"`
+		}
+		if err := c.wire.call(ctx, "thread/resume", map[string]any{"threadId": t.id, "excludeTurns": true}, &res); err != nil {
+			return err
+		}
+		var approval string
+		_ = json.Unmarshal(res.Approval, &approval)
+		var sandbox struct {
+			Type    string          `json:"type"`
+			Network json.RawMessage `json:"networkAccess"`
+		}
+		_ = json.Unmarshal(res.Sandbox, &sandbox)
+		var network bool
+		_ = json.Unmarshal(sandbox.Network, &network)
+		if string(sandbox.Network) == `"enabled"` || sandbox.Type == "dangerFullAccess" {
+			network = true
+		}
+		out.ApprovalPolicy, out.Sandbox, out.NetworkAccess, out.Reviewer = approval, sandbox.Type, network, res.Reviewer
+		out.Authoritative = approval != "" && sandbox.Type != "" && res.Thread.ID == t.id && res.Thread.Status.Type != ""
+		if res.Thread.Status.Type == "active" {
+			current.status = proto.StatusWorking
+		}
+		if len(res.Thread.Status.ActiveFlags) > 0 {
+			current.status = proto.StatusBlocked
+		}
+		return nil
+	}
+	if err := read(); err != nil {
+		return nil, refusal("codex_permissions_unavailable", "Could not read the current Codex policy", nil)
+	}
+	if !out.Authoritative {
+		out.Reason = "readback"
+		if choice != nil {
+			return nil, refusal("codex_permissions_unsupported", "This Codex version does not report its effective permissions. Update Codex before changing them here.", nil)
+		}
+		return out, nil
+	}
+	c.mu.Lock()
+	unavailable := c.permissionsUnavailable
+	c.mu.Unlock()
+	if unavailable {
+		out.Reason = "unsupported"
+		if choice != nil {
+			return nil, refusal("codex_permissions_unsupported", "This Codex connection does not support permission updates", nil)
+		}
+		return out, nil
+	}
+	out.Reason = ""
+	out.Choices = []string{"read-only", "workspace-write", "full-access"}
+	// Working/approval-blocked turns keep their settings; even protocol changes wait for idle.
+	if current.status == proto.StatusWorking || current.status == proto.StatusBlocked || current.turn != "" {
+		out.Reason = "busy"
+		out.Choices = []string{}
+	}
+	if out.Reason != "busy" {
+		c.mu.Lock()
+		checked := c.permissionsChecked
+		c.mu.Unlock()
+		if !checked {
+			// All settings omitted: verify the method without changing policy, model or effort.
+			if err := c.wire.call(ctx, "thread/settings/update", map[string]any{"threadId": t.id}, nil); err != nil {
+				var re *codexError
+				if errors.As(err, &re) && re.Code == -32601 {
+					c.mu.Lock()
+					c.permissionsUnavailable = true
+					c.mu.Unlock()
+					out.Reason = "unsupported"
+					out.Choices = []string{}
+					if choice == nil {
+						return out, nil
+					}
+					return nil, refusal("codex_permissions_unsupported", "Codex does not support thread permission updates", nil)
+				}
+				return nil, refusal("codex_permissions_unavailable", "Could not verify Codex permission controls", nil)
+			}
+			c.mu.Lock()
+			c.permissionsChecked = true
+			c.mu.Unlock()
+		}
+	}
+	if choice == nil {
+		return out, nil
+	}
+	if !slices.Contains(out.Choices, *choice) {
+		return nil, refusal("codex_permissions_busy", "Wait until Codex is idle and any approval request is resolved before changing permissions.", nil)
+	}
+	if _, err := codexPermissionFlags(*choice); err != nil || *choice == "" {
+		return nil, refusal("codex_permissions_invalid", "Invalid Codex permission choice", nil)
+	}
+	approval, sandbox := "on-request", "readOnly"
+	if *choice == "workspace-write" {
+		sandbox = "workspaceWrite"
+	}
+	if *choice == "full-access" {
+		approval, sandbox = "never", "dangerFullAccess"
+	}
+	if err := c.wire.call(ctx, "thread/settings/update", map[string]any{"threadId": t.id, "approvalPolicy": approval, "approvalsReviewer": "user", "sandboxPolicy": map[string]any{"type": sandbox}}, nil); err != nil {
+		var re *codexError
+		if errors.As(err, &re) && re.Code == -32601 {
+			c.mu.Lock()
+			c.permissionsUnavailable = true
+			c.mu.Unlock()
+		}
+		return nil, refusal("codex_permissions_unsupported", "Codex did not accept the permission change. Update Codex if this version does not support thread settings.", nil)
+	}
+	if err := read(); err != nil {
+		return nil, refusal("codex_permissions_unavailable", "Could not read the current Codex policy", nil)
+	}
+	if !out.Authoritative || out.ApprovalPolicy != approval || out.Sandbox != sandbox || out.Reviewer != "user" || sandbox != "dangerFullAccess" && out.NetworkAccess {
+		return nil, refusal("codex_permissions_unconfirmed", "Codex has not confirmed the requested permissions. Refresh to inspect the current policy.", nil)
+	}
+	n.notifyCodex()
+	return out, nil
 }

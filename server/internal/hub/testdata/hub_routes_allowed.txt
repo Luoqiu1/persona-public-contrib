@@ -184,3 +184,5 @@ PUT /api/v1/pins
 
 # Codex Agent permission transport; settings are applied only by the owning node.
 POST /api/v1/sessions/codex
+GET /api/v1/sessions/{mid}/{sid}/codex-permissions
+POST /api/v1/sessions/{mid}/{sid}/codex-permissions

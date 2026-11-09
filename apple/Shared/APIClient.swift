@@ -586,6 +586,28 @@ nonisolated struct APIClient: Sendable {
         }.value)
     }
 
+    struct CodexPermissions: Decodable, Sendable {
+        var approvalPolicy: String?
+        var sandbox: String?
+        var reviewer: String?
+        var networkAccess: Bool
+        var authoritative: Bool
+        var choices: [String]
+        var reason: String?
+        enum CodingKeys: String, CodingKey {
+            case sandbox, reviewer, authoritative, choices, reason
+            case approvalPolicy = "approval_policy", networkAccess = "network_access"
+        }
+    }
+
+    func codexPermissions(_ key: SessionKey, choice: String? = nil) async throws -> CodexPermissions {
+        let path = sp(key) + "/codex-permissions"
+        if let choice {
+            return try await post(path, body: ["choice": choice], as: CodexPermissions.self)
+        }
+        return try await get(path, as: CodexPermissions.self)
+    }
+
     struct StartRequest: Encodable {
         var machineID: String
         var cwd: String

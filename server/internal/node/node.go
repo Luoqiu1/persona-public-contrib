@@ -542,6 +542,12 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 			return nil, fmt.Errorf("bad params: %w", err)
 		}
 	}
+	if method == "session.codex_permissions" {
+		if n.codexBlocked(p.SessionID) {
+			return nil, refusal("identity_conflict", "Cannot identify this Codex session", nil)
+		}
+		return n.codexPermissions(ctx, p.SessionID, p.CodexPermissions)
+	}
 	if method == "session.start_codex" {
 		if p.CodexPermissions == nil || p.Async || p.ResumeSessionID != "" || p.PermissionMode != "" || p.Effort != "" {
 			return nil, refusal("codex_permissions_invalid", "Invalid Codex start request", nil)

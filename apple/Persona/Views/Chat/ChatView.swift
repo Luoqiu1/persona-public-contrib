@@ -2182,6 +2182,9 @@ struct ChatView: View {
                 // The assistant takes modes on Codex too (the node maps them to Codex's sandbox / approvals); a Codex thread
                 // on its app-server takes its effort alone (setsEffortOnly).
                 // In the shell the modes are in the composer's model menu (ShellComposerBar, #1091).
+                if viewing == nil, !usesShellComposer, session?.agent == "codex", session?.assistant != true {
+                    CodexPermissionsButton(key: key).padding(.leading, Theme.Space.xs)
+                }
                 let modes = viewing == nil && !usesShellComposer && session?.canSend == true && (session.map({ $0.assistant || $0.isClaude || $0.setsEffortOnly }) ?? true)
                 if modes {
                     SessionModeBar(key: key, session: session)
@@ -3959,6 +3962,7 @@ struct Composer: View, Equatable {
     @State private var voiceNote: VoiceUnavailableNote?
     /// The model menu's "Other Model…" (#1644): a model ID typed by hand, through POST …/modes.
     @State private var typingModel = false
+    @State private var codexPermissionsOpen = false
 
     /// The voice call bound to this conversation, live or ended (docs/assistant/voice.md 6.2): the bar takes the box's place while
     /// it is on, and 「语音已结束 · 继续」 sits over the box after it ended by itself.
@@ -4096,7 +4100,7 @@ struct Composer: View, Equatable {
     /// The model button's title; with nothing to show or pick, no button.
     private var modesTitle: SessionModes.ComposerTitle? {
         let effort = setsModes || setsEffortOnly
-        return SessionModesMenu.title(model.session(key), setsModes: effort) ?? (effort || canPickModel ? .init(model: String(localized: "Model [Assistant View c98e11]")) : nil)
+        return SessionModesMenu.title(model.session(key), setsModes: effort) ?? (effort || canPickModel || model.session(key)?.agent == "codex" ? .init(model: String(localized: "Model [Assistant View c98e11]")) : nil)
     }
 
     /// The @ menu: files this chat's tools touched, then other agents' sessions.
@@ -4238,7 +4242,7 @@ struct Composer: View, Equatable {
                     if !shellChat { quickCommands } // an agent's, as its composer offered them before the shell's
                 } modes: {
                     SessionModesMenu(key: key, session: model.session(key), picksModel: canPickModel, setsModes: setsModes,
-                                     setsEffortOnly: setsEffortOnly, otherModel: canPickModel ? { typingModel = true } : nil)
+                                     setsEffortOnly: setsEffortOnly, otherModel: canPickModel ? { typingModel = true } : nil, codexPermissions: { codexPermissionsOpen = true })
                 }
             } else if AppStyle.current.usesBeautifulUI {
                 // The BeautifulUI style's prompt bar; every other style keeps the original input line.
@@ -4447,6 +4451,7 @@ struct Composer: View, Equatable {
         }
         #endif
         .sheet(isPresented: $typingModel) { SessionTypedModelSheet(key: key, session: model.session(key)) }
+        .sheet(isPresented: $codexPermissionsOpen) { CodexPermissionsSheet(key: key) }
         .onChange(of: picks) { _, items in
             guard !items.isEmpty else { return }
             Task { await load(items) }

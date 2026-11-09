@@ -37,6 +37,9 @@ type remoteFixture struct {
 	resumeRequest bool
 	ephemeral     string
 	// models answers model/list; threadModel / threadEffort are the threads' configured model and effort (codex_effort.go).
+	permissions               map[string]map[string]any
+	ignorePermissions         bool
+	permissionReadbackThread  string
 	models                    any
 	threadModel, threadEffort string
 	// archive plays thread/archive and thread/unarchive on the home's files (archive_test.go), before any reject.
@@ -141,10 +144,31 @@ func (f *remoteFixture) serve(w http.ResponseWriter, r *http.Request) {
 			}
 		case "thread/resume":
 			result = map[string]any{"thread": d}
+			f.mu.Lock()
+			for k, v := range f.permissions[thread] {
+				result.(map[string]any)[k] = v
+			}
+			f.mu.Unlock()
 		case "turn/start":
 			result = map[string]any{"turn": map[string]any{"id": "turn-1"}}
 			fallthrough // its effort is the thread's from then on, as a settings update's
 		case "thread/settings/update":
+			f.mu.Lock()
+			if policy := f.permissions[thread]; policy != nil && !f.ignorePermissions {
+				if v, ok := p["approvalPolicy"]; ok {
+					policy["approvalPolicy"] = v
+				}
+				if v, ok := p["sandboxPolicy"]; ok {
+					policy["sandbox"] = v
+					if f.permissionReadbackThread != "" {
+						policy["thread"] = map[string]any{"id": f.permissionReadbackThread, "status": map[string]any{"type": "idle"}}
+					}
+				}
+				if v, ok := p["approvalsReviewer"]; ok {
+					policy["approvalsReviewer"] = v
+				}
+			}
+			f.mu.Unlock()
 			if e, ok := p["effort"].(string); ok {
 				f.mu.Lock()
 				f.threadEffort = e

@@ -286,6 +286,7 @@ struct SessionModesMenu: View {
     var setsEffortOnly = false
     /// "Other Model…" where a model can be picked: the composer opens `SessionTypedModelSheet` (#1644).
     var otherModel: (() -> Void)? = nil
+    var codexPermissions: (() -> Void)? = nil
 
     /// The button's title for this conversation; the effort carries the workflow mark while ultracode is on (#1307).
     static func title(_ session: Session?, setsModes: Bool) -> SessionModes.ComposerTitle? {
@@ -300,6 +301,9 @@ struct SessionModesMenu: View {
         let effort = session?.effort
         // Allow Everything is said here, not on the composer's button (#1117). First: a menu opening upward from the button puts
         // its first item next to it, where a menu too tall for the screen is never cut off.
+        if session?.agent == "codex", session?.assistant != true {
+            CodexPermissionsButton(key: key, action: codexPermissions)
+        }
         if setsModes, mode == "bypassPermissions" {
             Section { BypassWarning() }
         }

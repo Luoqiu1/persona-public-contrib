@@ -608,3 +608,5 @@ A purpose-level model override does not change the managed launcher's default. L
 - A Codex rollout can exist before its first `session_meta` line is complete. Cache its immutable directory metadata only once the directory is known, or a successful Agent launch can time out waiting for a thread that is already answering.
 
 - Codex permission/profile refusals and an old-node capability refusal must not count as launcher failures: the request was refused before the launcher ran.
+
+- Codex Agent permission settings must not reuse Claude mode names or infer elevation from a parent worktree. Orca's `settings.getAgentLaunch` projects stock launch arguments; custom launchers retain their own profile/config precedence. Use a distinct RPC for explicit policies so an old node cannot ignore them. `thread/settings/update` needs effective readback (`thread/resume` without overrides); a successful empty reply alone does not prove that a server applied the policy. Never hold the Codex event-delivery mutex while waiting for a protocol reply: a notification ahead of the reply would block the socket reader.

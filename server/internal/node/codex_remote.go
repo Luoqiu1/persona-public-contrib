@@ -50,22 +50,24 @@ type remoteAsk struct {
 }
 
 type codexRemote struct {
-	n          *Node
-	spec       proto.CodexServer
-	generation string
-	wire       *codexConn
-	socket     *websocket.Conn
-	ctx        context.Context
-	cancel     context.CancelFunc
-	done       chan struct{}
-	once       sync.Once
-	delivery   sync.Mutex
-	mu         sync.Mutex
-	threads    map[string]remoteThread
-	asks       map[string]*remoteAsk
-	joins      typingLocks
-	finished   map[string]bool
-	ready      bool
+	n                      *Node
+	spec                   proto.CodexServer
+	generation             string
+	wire                   *codexConn
+	socket                 *websocket.Conn
+	ctx                    context.Context
+	cancel                 context.CancelFunc
+	done                   chan struct{}
+	once                   sync.Once
+	delivery               sync.Mutex
+	mu                     sync.Mutex
+	threads                map[string]remoteThread
+	asks                   map[string]*remoteAsk
+	joins                  typingLocks
+	finished               map[string]bool
+	ready                  bool
+	permissionsUnavailable bool
+	permissionsChecked     bool
 	// models: the efforts each model takes, from model/list (codex_effort.go); nil until read.
 	models map[string]codexModelEfforts
 }

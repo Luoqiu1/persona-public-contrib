@@ -24,8 +24,8 @@ import (
 //     session's effort until then. Any other failure (the connection gone, no answer in time, Codex refusing it) is
 //     the phone's error, and nothing is kept for a later turn to carry.
 //
-// Permission modes stay Claude's: a Codex thread's approvals and sandbox are not changed from the phone. Panes on the
-// terminal route, subagents, the Codex App's own chats and a compatible CLI keep refusing both (modes.go).
+// Claude permission modes stay on their existing RPC. Codex approval and sandbox controls use the independent
+// capability/readback contract in codex_permissions.go; terminal-only panes and subagents offer no policy changes.
 
 // codexEffortLevels are Codex's reasoning efforts, weakest first: the Codex settings page's choices (codexconfig.go)
 // and what a thread offers when its app-server's model/list does not name its model.

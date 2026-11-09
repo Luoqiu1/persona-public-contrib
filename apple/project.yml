@@ -389,6 +389,7 @@ targets:
       - path: Shared/ExtensionSystemLink.swift
       - path: Shared/ExtensionSurfaceStore.swift
       - path: Shared/ExtensionSurfaceClient.swift
+      - path: Shared/RequestClientMetadata.swift
       - path: Shared/ExtensionSurfaceEntities.swift
       - path: Shared/ExtensionSurfaceView.swift
       - path: Shared/ExtensionSystemWidget.swift
@@ -591,6 +592,7 @@ targets:
       - path: Shared/ExtensionSystemLink.swift
       - path: Shared/ExtensionSurfaceStore.swift
       - path: Shared/ExtensionSurfaceClient.swift
+      - path: Shared/RequestClientMetadata.swift
       - path: Shared/ExtensionSurfaceEntities.swift
       - path: Shared/ExtensionSurfaceView.swift
       - path: Shared/ExtensionSystemWidget.swift
@@ -664,6 +666,7 @@ targets:
       - path: PersonaTests/WorkspaceCatalogTests.swift
       - path: PersonaTests/WorkspaceNavigationTests.swift
       - path: PersonaTests/NewChatDestinationTests.swift
+      - path: PersonaTests/AgentWorktreeTests.swift
       - path: PersonaTests/WorktreeFormTests.swift
       - path: PersonaTests/SessionRenameFormTests.swift
       - path: PersonaTests/HubNamingCompatibilityTests.swift
@@ -689,7 +692,6 @@ targets:
     sources:
       - path: PersonaUITests/ExtensionStreamUITests.swift
       - path: PersonaUITests/UITestStyle.swift
-      - path: PersonaUITests/LaunchLayout.swift
     dependencies:
       - target: PersonaMac
     settings:

@@ -53,4 +53,24 @@ import Testing
         let json = try #require(JSONSerialization.jsonObject(with: JSON.encoder.encode(request)) as? [String: Any])
         #expect(json["host"] == nil && json["workspace_id"] == nil)
     }
+
+    @Test func repositoryLookupTracksWorkspaceIdentityEvenWhenTheDirectoryDoesNotChange() {
+        let cwd = "/work/shared"
+        func key(_ destination: SpacePreset?) -> [String] {
+            SpacePreset.repositoryLookupKey(machineID: "box", cwd: cwd, online: true, destination: destination)
+        }
+        var target = SpacePreset(machineID: "box", cwd: cwd, workspaceID: "first", spaceName: "Selected", host: "orca")
+        let joined = key(target)
+        let directory = key(nil)
+        #expect(joined != directory, "Returning to the same folder must restore its Git worktree creation option")
+        #expect(directory == key(nil), "An unchanged directory does not restart repository discovery")
+        target.workspaceID = "second"
+        #expect(joined != key(target))
+        target.workspaceID = "first"
+        target.host = "herdr"
+        #expect(joined != key(target), "Workspace IDs are local to their host")
+        target.host = "orca"
+        target.spaceName = "Renamed label"
+        #expect(joined == key(target), "A display-name change does not change the repository lookup target")
+    }
 }

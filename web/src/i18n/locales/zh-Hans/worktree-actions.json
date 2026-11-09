@@ -28,7 +28,6 @@
   "unavailable": "此工作区或其引擎当前不可用。",
   "protected": "不能删除主检出目录。",
   "has_children": "请先移除子工作树，再删除父工作树。",
-  "child_unavailable": "当前版本暂不支持创建子工作树。",
   "rename_unknown": "重命名尚未确认，请核对当前名称后再重试。",
   "preview_invalid": "删除预览与当前工作区不符，请关闭并核对当前工作区。",
   "previewing": "正在核对工作树…",

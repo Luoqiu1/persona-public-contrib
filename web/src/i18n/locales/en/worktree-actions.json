@@ -28,7 +28,6 @@
   "unavailable": "This workspace or its engine is unavailable.",
   "protected": "The main checkout cannot be deleted.",
   "has_children": "Remove child worktrees before deleting this parent.",
-  "child_unavailable": "Child worktree creation is not available in this version.",
   "rename_unknown": "The rename is not confirmed. Check the current worktree name before trying again.",
   "preview_invalid": "The deletion preview does not match this workspace. Close and review the current workspace.",
   "previewing": "Reviewing the worktree…",

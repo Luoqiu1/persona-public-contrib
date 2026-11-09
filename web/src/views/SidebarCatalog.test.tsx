@@ -15,12 +15,14 @@ vi.mock("../lib/format", async (load) => {
   } };
 });
 import { getState, refresh, reset } from "../lib/store";
-import { setToken } from "../lib/api";
-import { refreshWorkspaceCatalog, type HostWorkspace } from "../lib/workspace-catalog";
+import { credentialOwner, setToken } from "../lib/api";
+import { refreshWorkspaceCatalog, workspaceTarget, type HostWorkspace } from "../lib/workspace-catalog";
 import type { Machine, Session } from "../lib/types";
 import { Sidebar } from "./Sidebar";
 import { t } from "../i18n";
 import type { WorkspaceTreeActions } from "./SidebarTree";
+import { defaultManager } from "../lib/manager-choice";
+import { selectWorkspace } from "../lib/workspace-selection";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const machine: Machine = { id: "machine-a", name: "Computer A", online: true };
@@ -86,6 +88,20 @@ describe("By repo catalog integration", () => {
     click(disclosure("root"));
     expect(disclosure("root").getAttribute("aria-expanded")).toBe("false");
     expect(onSelectWorkspace).toHaveBeenCalledTimes(1);
+  });
+
+  it("reveals an externally selected parent without opening it and rejects an old connection's selection", async () => {
+    await render();
+    click(disclosure("middle")); click(disclosure("root"));
+    const parent = workspaceTarget(inventory[1]!, credentialOwner(), defaultManager());
+    act(() => selectWorkspace(parent));
+    expect(disclosure("root").getAttribute("aria-expanded")).toBe("true");
+    expect(disclosure("middle").getAttribute("aria-expanded")).toBe("false");
+    expect(title("middle").getAttribute("aria-pressed")).toBe("true");
+    expect(title("middle").closest("[inert]")).toBeNull();
+    act(() => setToken("replacement-connection")); await flush();
+    act(() => selectWorkspace(parent));
+    expect(title("middle").getAttribute("aria-pressed")).toBe("false");
   });
 
   it("retires the old credential's outstanding discovery read while a mounted sidebar switches owners", async () => {

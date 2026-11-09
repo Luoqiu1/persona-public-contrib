@@ -677,3 +677,8 @@ A successful token check does not prove the subsequent device-token exchange suc
 ## An op receipt keeps the hub's answer and the digest covers the body (#2459)
 
 A write under an op id can be repeated only unchanged: the hub replays the answer it kept for that id (a refusal included) and answers `409 op_id_reused` when the body changed. So a retry after a gap keeps the id and the request as they were, which means a start that may have reached the hub cannot reopen its form; a retry after a refusal needs a new id. Another request of the same flow, such as the Codex start with a prompt, has its own id. A repeat can also come back `202 {"state":"pending"}` or `{"state":"unknown"}`, which `res.ok` reads as success, so a caller that needs the real answer has to look at `state`.
+
+
+## Workspace identity outlives its Agents
+
+An Agent collection cannot serve as a workspace inventory: empty ancestors disappear, and pinning or filtering can remove the only row carrying a parent edge. Keep discovery independent of the board and count actual Agents separately from catalog containers. Bind actions to credential generation, manager, computer, host and runtime workspace ID; matching paths do not grant ownership. A combined browser fixture must stamp its sessions and discovery with the same manager, or it correctly exercises isolation instead of navigation.

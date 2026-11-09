@@ -2,6 +2,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { api, credentialOwner, onCredentialChange, subscribeCredentialOwner } from "./api";
 import { defaultManager, MANAGER_HEADER, onDefaultManager, useKnownDefault } from "./manager-choice";
 import { sameValue } from "./stable-lines";
+import type { WorkspaceTarget as RuntimeWorkspaceTarget } from "./workspace-target";
 
 /** The host inventory, independent of board settings and of the Agents currently running. */
 export interface HostWorkspace {
@@ -10,15 +11,10 @@ export interface HostWorkspace {
   is_main?: boolean; unread?: boolean; sidebar_status?: string; workspace_kind?: string;
   head?: string; index?: number; branch?: string; online?: boolean; available?: boolean; last_seen?: string;
 }
-export interface WorkspaceTarget {
-  /** Opaque credential generation. Never store or pass a bearer token as ownership. */
+/** Discovered targets always carry their credential/manager partition and human label. */
+export interface WorkspaceTarget extends RuntimeWorkspaceTarget {
   owner: string;
   manager: string;
-  machineId: string;
-  host: string;
-  /** Exact source-local runtime ID, not the hub-qualified discovery ID. */
-  workspaceId: string;
-  cwd: string;
   label: string;
 }
 export type WorkspaceCatalogOwner = Pick<WorkspaceTarget, "owner" | "manager">;

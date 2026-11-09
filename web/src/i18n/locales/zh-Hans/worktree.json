@@ -14,7 +14,6 @@
   "branch_edges": "分支名的开头或结尾不合法",
   "branch_parts": "分支名的每一段都不能以 . 开头或以 .lock 结尾",
   "created": "已新建 worktree",
-  "create_open": "创建并打开",
   "repo_on_branch": "{repo} · 当前分支 {branch}",
   "repo_detached": "{repo} · 未在任何分支上",
   "branch_label": "分支",

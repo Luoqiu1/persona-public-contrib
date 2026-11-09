@@ -14,7 +14,6 @@
   "branch_edges": "The branch name can't start or end that way",
   "branch_parts": "No part of a branch name can start with . or end with .lock",
   "created": "Worktree created",
-  "create_open": "Create and open",
   "repo_on_branch": "{repo} · On branch {branch}",
   "repo_detached": "{repo} · Not on any branch",
   "branch_label": "Branch",

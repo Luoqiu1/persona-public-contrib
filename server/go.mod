@@ -3,6 +3,7 @@ module github.com/nwverse/persona/server
 go 1.27.1
 
 require (
+	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8
@@ -32,7 +33,6 @@ require (
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
-	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/creachadair/msync v0.8.1 // indirect
 	github.com/dblohm7/wingoes v0.0.0-20240119213807-a09d6be7affa // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect

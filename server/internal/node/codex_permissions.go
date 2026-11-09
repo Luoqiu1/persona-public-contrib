@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anmitsu/go-shlex"
 	"github.com/nwverse/persona/server/internal/host"
 	"github.com/nwverse/persona/server/internal/orcart"
 	"github.com/nwverse/persona/server/internal/proto"
@@ -114,6 +115,9 @@ func (n *Node) codexLaunchPermissions(ctx context.Context, launch host.Launcher,
 		rawArgs := res.Settings.Args["codex"]
 		if strings.ContainsAny(rawArgs, "\n\r") {
 			return nil, refusal("codex_launch_preferences", "Orca launch arguments require a shell", nil)
+		}
+		if _, err := shlex.Split(rawArgs, true); err != nil {
+			return nil, refusal("codex_launch_preferences", "Orca launch arguments have incomplete quoting. Correct them before starting Codex.", nil)
 		}
 		args := shellWords(rawArgs)
 		// Exec literal argv, never evaluate shell operators, substitutions or variables.

@@ -202,6 +202,12 @@ func TestCodexPermissionsFollowOrcaProjectedLaunchProfile(t *testing.T) {
 	if err != nil || !slices.Equal(got, alias) {
 		t.Fatalf("alias: %q %v", got, err)
 	}
+	for _, raw := range []string{"--sandbox 'read-only", `--sandbox "read-only`, "--sandbox read-only\\"} {
+		settings["agentDefaultArgs"] = map[string]string{"codex": raw}
+		if _, err := n.codexLaunchPermissions(context.Background(), h, "codex", []string{"codex"}, nil); err == nil {
+			t.Fatalf("accepted incomplete launcher arguments: %q", raw)
+		}
+	}
 	o.Handle("settings.getAgentLaunch", func(map[string]any) any { return orcarttest.Fail{Code: "method_not_found"} })
 	if _, err := n.codexLaunchPermissions(context.Background(), h, "codex", []string{"codex"}, nil); err == nil {
 		t.Fatal("old Orca silently fell back")

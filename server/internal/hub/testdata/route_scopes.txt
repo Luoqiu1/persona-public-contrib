@@ -222,6 +222,7 @@ machines.read        GET /api/v1/machines/{mid}/stat
 -                    GET /api/v1/recordings
 agents.read          GET /api/v1/sessions
 agents.read          GET /api/v1/sessions/archived
+-                    GET /api/v1/sessions/{mid}/{sid}/codex-permissions
 agents.read          GET /api/v1/sessions/{mid}/{sid}/info
 agents.read          GET /api/v1/sessions/{mid}/{sid}/items
 agents.read          GET /api/v1/sessions/{mid}/{sid}/items/{iid}/full
@@ -401,9 +402,11 @@ agents.control       POST /api/v1/interactions/{id}/resolve
 notify               POST /api/v1/notify
 -                    POST /api/v1/phone/runtime-cli
 agents.control       POST /api/v1/sessions
+-                    POST /api/v1/sessions/codex
 -                    POST /api/v1/sessions/{mid}/{sid}/archive
 -                    POST /api/v1/sessions/{mid}/{sid}/attach
 -                    POST /api/v1/sessions/{mid}/{sid}/close
+-                    POST /api/v1/sessions/{mid}/{sid}/codex-permissions
 -                    POST /api/v1/sessions/{mid}/{sid}/fork
 agents.control       POST /api/v1/sessions/{mid}/{sid}/interrupt
 -                    POST /api/v1/sessions/{mid}/{sid}/keys

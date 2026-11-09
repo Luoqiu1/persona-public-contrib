@@ -84,24 +84,17 @@ func (n *Node) codexLaunchPermissions(ctx context.Context, launch host.Launcher,
 	if err != nil {
 		return nil, err
 	}
-	if len(flags) > 0 {
-		check := argv
-		if managed, ok := n.managedLauncher(launcher); ok {
-			check = append(slices.Clone(check), managed.Args...)
-		}
-		if codexOnRemote(check) || codexPermissionCarrier(check) {
-			return nil, refusal("codex_permission_conflict", "The launcher already selects a Codex permission policy or profile. Follow the launcher or choose a launcher without permission overrides.", nil)
-		}
-		return append(argv, flags...), nil
-	}
 	// Only the stock launcher follows Orca's stock launch profile. Aliases and managed
 	// launchers retain their own complete configuration, including environment/profile flags.
 	if h, ok := launch.(*orcaHost); ok && launcher == "codex" && len(argv) == 1 && argv[0] == "codex" {
 		var res struct {
 			Settings struct {
-				Commands map[string]string   `json:"agentCmdOverrides"`
-				Args     map[string]string   `json:"agentDefaultArgs"`
-				Env      map[string][]string `json:"environmentNames"`
+				Commands   map[string]string   `json:"agentCmdOverrides"`
+				Args       map[string]string   `json:"agentDefaultArgs"`
+				Env        map[string][]string `json:"environmentNames"`
+				Permission *struct {
+					UserArgs map[string]string `json:"userArgs"`
+				} `json:"agentPermission"`
 			} `json:"settings"`
 		}
 		if err := h.c.Call(ctx, orcart.CallTimeout, "settings.getAgentLaunch", nil, &res); err != nil {
@@ -113,6 +106,15 @@ func (n *Node) codexLaunchPermissions(ctx context.Context, launch host.Launcher,
 			return nil, refusal("codex_launch_preferences", "Orca's Codex launcher has a custom command or environment. Select that configured launcher in Persona.", nil)
 		}
 		rawArgs := res.Settings.Args["codex"]
+		if selected != "" && res.Settings.Permission != nil {
+			// Orca's projection retains model/effort and user arguments, excluding only
+			// its injected permission flags. Never strip a user's config/profile ourselves.
+			projected, known := res.Settings.Permission.UserArgs["codex"]
+			if !known && rawArgs != "" {
+				return nil, refusal("codex_launch_preferences", "Orca did not report the arguments to preserve for this permission override", nil)
+			}
+			rawArgs = projected
+		}
 		if strings.ContainsAny(rawArgs, "\n\r") {
 			return nil, refusal("codex_launch_preferences", "Orca launch arguments require a shell", nil)
 		}
@@ -127,6 +129,16 @@ func (n *Node) codexLaunchPermissions(ctx context.Context, launch host.Launcher,
 			}
 		}
 		argv = append(argv, args...)
+	}
+	if len(flags) > 0 {
+		check := argv
+		if managed, ok := n.managedLauncher(launcher); ok {
+			check = append(slices.Clone(check), managed.Args...)
+		}
+		if codexOnRemote(check) || codexPermissionCarrier(check) {
+			return nil, refusal("codex_permission_conflict", "The launcher already selects a Codex permission policy or profile. Follow the launcher or choose a launcher without permission overrides.", nil)
+		}
+		return append(argv, flags...), nil
 	}
 	return argv, nil
 }

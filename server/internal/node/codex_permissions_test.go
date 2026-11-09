@@ -185,7 +185,7 @@ func TestCodexPermissionsProtocolReadbackBusyAndConnectionScope(t *testing.T) {
 func TestCodexPermissionsFollowOrcaProjectedLaunchProfile(t *testing.T) {
 	n, _, o, _, _ := orcaNode(t)
 	h := newOrcaHost(&orcart.Client{MetaPath: o.MetaPath})
-	settings := map[string]any{"agentDefaultArgs": map[string]string{"codex": "--dangerously-bypass-approvals-and-sandbox -m gpt-6 -c model_reasoning_effort=high"}}
+	settings := map[string]any{"agentDefaultArgs": map[string]string{"codex": "--dangerously-bypass-approvals-and-sandbox -m gpt-6 -c model_reasoning_effort=high"}, "agentPermission": map[string]any{"userArgs": map[string]string{"codex": "-m gpt-6 -c model_reasoning_effort=high"}}}
 	o.Handle("settings.getAgentLaunch", func(map[string]any) any { return map[string]any{"settings": settings} })
 	got, err := n.codexLaunchPermissions(context.Background(), h, "codex", []string{"codex"}, nil)
 	if err != nil || !slices.Equal(got, []string{"codex", "--dangerously-bypass-approvals-and-sandbox", "-m", "gpt-6", "-c", "model_reasoning_effort=high"}) {
@@ -193,8 +193,21 @@ func TestCodexPermissionsFollowOrcaProjectedLaunchProfile(t *testing.T) {
 	}
 	choice := "read-only"
 	got, err = n.codexLaunchPermissions(context.Background(), h, "codex", []string{"codex"}, &choice)
-	if err != nil || slices.Contains(got, "--dangerously-bypass-approvals-and-sandbox") {
-		t.Fatalf("explicit choice inherited full access: %q %v", got, err)
+	if err != nil || slices.Contains(got, "--dangerously-bypass-approvals-and-sandbox") || !slices.Contains(got, "gpt-6") || !slices.Contains(got, "model_reasoning_effort=high") {
+		t.Fatalf("explicit choice lost model/effort or inherited full access: %q %v", got, err)
+	}
+	settings["agentPermission"] = map[string]any{}
+	if _, err := n.codexLaunchPermissions(context.Background(), h, "codex", []string{"codex"}, &choice); err == nil {
+		t.Fatal("incomplete projection dropped model/effort")
+	}
+	delete(settings, "agentPermission")
+	if _, err := n.codexLaunchPermissions(context.Background(), h, "codex", []string{"codex"}, &choice); err == nil {
+		t.Fatal("legacy permission arguments were silently overridden")
+	}
+	settings["agentDefaultArgs"] = map[string]string{"codex": "-m gpt-6 -c model_reasoning_effort=high"}
+	got, err = n.codexLaunchPermissions(context.Background(), h, "codex", []string{"codex"}, &choice)
+	if err != nil || !slices.Contains(got, "gpt-6") || !slices.Contains(got, "model_reasoning_effort=high") {
+		t.Fatalf("legacy model/effort lost: %q %v", got, err)
 	}
 	// An alias belongs to its author; Orca defaults must not overwrite its config.
 	alias := []string{"codex", "-p", "custom"}

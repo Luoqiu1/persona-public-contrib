@@ -15,6 +15,17 @@ struct CodexPermissionsTests {
         #expect(value.reason == "busy")
     }
 
+    @Test func creationPreservesWorkspaceHostAndPermission() throws {
+        let request = APIClient.StartRequest(machineID: "box", cwd: "/work", launcher: "codex",
+                                             workspaceID: "orca:parent", host: "orca", codexPermissions: "read-only", model: "selected-model")
+        let value = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: String])
+        #expect(value["host"] == "orca")
+        #expect(value["workspace_id"] == "orca:parent")
+        #expect(value["codex_permissions"] == "read-only")
+        #expect(value["model"] == "selected-model")
+        #expect(value["permission_mode"] == nil)
+    }
+
     @Test func creationChoicesAreSessionPolicies() {
         #expect(CodexPermissionChoice.choices == ["read-only", "workspace-write", "full-access"])
         #expect(!CodexPermissionChoice.choices.contains("bypassPermissions"))

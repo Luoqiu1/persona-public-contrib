@@ -29,12 +29,15 @@ func TestCodexStartPermissionTransportAndOldNode(t *testing.T) {
 	})
 	connectAssistant(t, h)
 	for _, choice := range []string{"", "full-access"} {
-		body, _ := json.Marshal(map[string]any{"machine_id": "box", "cwd": "/workspace", "launcher": "codex", "codex_permissions": choice})
+		body, _ := json.Marshal(map[string]any{"machine_id": "box", "cwd": "/workspace", "launcher": "codex", "host": "orca", "workspace_id": "orca:parent", "codex_permissions": choice})
 		w := modelsRequest(h, "POST", "/api/v1/sessions/codex", string(body))
 		if w.Code != http.StatusOK {
 			t.Fatalf("start %q: %d %s", choice, w.Code, w.Body)
 		}
 		got := seen[len(seen)-1]
+		if got["host"] != "orca" || got["workspace_id"] != "orca:parent" {
+			t.Fatalf("Codex lost its workspace host: %v", got)
+		}
 		if value, present := got["codex_permissions"]; !present || value != choice {
 			t.Fatalf("choice lost: %v", got)
 		}

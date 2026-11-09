@@ -1,5 +1,8 @@
 # Codex support
 
+Agent renames use `thread/name/set` on a connected app-server for that Codex home, or `/rename` in a live terminal.
+They never write Claude's `custom-title` records into a Codex rollout. Worktree display names are separate host metadata.
+
 Codex (`codex` CLI) running in herdr appears in the "Agents" tab like Claude: lists, chats, live state, messaging, terminals, and closing all work,
 and it can also be started from the phone ("Starting from the phone"). Supported since 2026-10-26; `server/internal/node/codex.go` + `server/internal/transcript/codex.go`.
 
@@ -406,3 +409,7 @@ The chat's **Codex Permissions** control reads approval policy, reviewer, sandbo
 Terminal-only sessions, subagents, structured runtime sessions without this contract, assistant conversations and older Codex servers have no actionable permission choices. The control distinguishes last-recorded rollout policy from authoritative current settings. An idle thread is probed with `thread/settings/update` containing only its ID (all settings omitted, a protocol no-op) before offering changes. A missing update method disables choices for that connection; reconnects rediscover support. There is no terminal-command fallback.
 
 Creation uses the distinct `session.start_codex` node RPC; inspection and updates use `session.codex_permissions`. Older nodes therefore cannot silently ignore a permission choice. The HTTP routes are `POST /api/v1/sessions/codex` (with `codex_permissions`, including an empty string for Follow), and `GET` / `POST /api/v1/sessions/{mid}/{sid}/codex-permissions` (POST body `{ "choice": "read-only" }`). Older clients keep their original creation and Claude mode contracts.
+
+### Orca hook ownership when starting Codex
+
+A new local Codex launched inside Orca must keep that terminal’s hook environment. A shared Codex app-server daemon can retain a previously launched terminal’s Orca identity, attributing a new conversation and first-work naming to the wrong worktree. The phone-start helper probes the executable in the new terminal and adds `--no-daemon` when supported. It preserves explicit remote connections, already isolated launchers and older CLIs without that flag. Other terminal engines keep their existing launch behavior.

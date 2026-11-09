@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -311,7 +312,16 @@ func cloneOriginQuery(q url.Values) url.Values {
 	return out
 }
 
-// Session has a compatibility decoder; do not promote it over the added scalar.
+// Session has compatibility decoders (UnmarshalJSONFrom, UnmarshalJSON); do not promote them over the added scalar.
+// encoding/json prefers UnmarshalJSONFrom, so originRow declares both.
+func (s *originRow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	return s.UnmarshalJSON(raw)
+}
+
 func (s *originRow) UnmarshalJSON(raw []byte) error {
 	if err := json.Unmarshal(raw, &s.Session); err != nil {
 		return err

@@ -26,6 +26,54 @@ struct CodexPermissionsTests {
         #expect(value["permission_mode"] == nil)
     }
 
+    @Test(arguments: [nil, ""] as [String?])
+    func defaultCreationUsesLegacyRoute(choice: String?) async throws {
+        let hub = FakeHub()
+        hub.on("POST", "/api/v1/sessions", json: #"{"session":{"machine_id":"box","session_id":"started"}}"#)
+        let session = try await hub.client.start(APIClient.StartRequest(machineID: "box", cwd: "/work", launcher: "codex",
+                                                                       workspaceID: "orca:parent", host: "orca", codexPermissions: choice, model: "selected-model"))
+        #expect(session.sessionID == "started")
+        let requests = hub.sent("POST", "/api/v1/sessions")
+        #expect(requests.count == 1)
+        #expect(hub.sent("POST", "/api/v1/sessions/codex").isEmpty)
+        let data = try #require(requests.first?.body)
+        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+        #expect(body["codex_permissions"] == nil)
+        #expect(body["host"] == "orca")
+        #expect(body["workspace_id"] == "orca:parent")
+        #expect(body["model"] == "selected-model")
+    }
+
+    @Test(arguments: ["read-only", "workspace-write", "full-access"])
+    func explicitCreationUsesPermissionRoute(choice: String) async throws {
+        let hub = FakeHub()
+        hub.on("POST", "/api/v1/sessions/codex", json: #"{"session":{"machine_id":"box","session_id":"started"}}"#)
+        _ = try await hub.client.start(APIClient.StartRequest(machineID: "box", cwd: "/work", launcher: "codex", codexPermissions: choice))
+        #expect(hub.sent("POST", "/api/v1/sessions").isEmpty)
+        let requests = hub.sent("POST", "/api/v1/sessions/codex")
+        #expect(requests.count == 1)
+        let data = try #require(requests.first?.body)
+        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+        #expect(body["codex_permissions"] == choice)
+    }
+
+    @Test(arguments: [404, 409])
+    func explicitCreationNeverFallsBackAfterRefusal(status: Int) async throws {
+        let hub = FakeHub()
+        hub.on("POST", "/api/v1/sessions", json: #"{"session":{"machine_id":"box","session_id":"unsafe-fallback"}}"#)
+        hub.on("POST", "/api/v1/sessions/codex") { _ in
+            throw APIError(status: status, message: "Permission controls require an update")
+        }
+        do {
+            _ = try await hub.client.start(APIClient.StartRequest(machineID: "box", cwd: "/work", launcher: "codex", codexPermissions: "read-only"))
+            Issue.record("An explicit permission choice must not fall back to an older creation contract")
+        } catch let error as APIError {
+            #expect(error.status == status)
+        }
+        #expect(hub.sent("POST", "/api/v1/sessions/codex").count == 1)
+        #expect(hub.sent("POST", "/api/v1/sessions").isEmpty)
+    }
+
     @Test func creationChoicesAreSessionPolicies() {
         #expect(CodexPermissionChoice.choices == ["read-only", "workspace-write", "full-access"])
         #expect(!CodexPermissionChoice.choices.contains("bypassPermissions"))

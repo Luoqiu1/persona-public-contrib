@@ -763,3 +763,10 @@ changes, and propagate failures. Native `auto` is distinct from full permission 
 ## Merge permission translations by catalog identity
 
 Independent string-catalog additions can produce a text conflict across adjacent entries. Compare the ancestor, feature and main catalogs by key, retain the current main entries and each unchanged feature translation, and verify the complete parsed catalog. A whole-side resolution can silently drop permission labels or unrelated upstream text.
+
+## Runtime availability checks need the runtime's authentication context (#3790)
+
+An SSH node and a local companion can have different credential access. A model list and session start succeeding in
+the companion do not make a login-shell health probe authenticated. Opt into runtime-owned checks, bound inference and
+cleanup, deny probe tools, and hide transcripts whose temporary probe workspace has been removed. Preserve a real
+workspace sharing the probe prefix while it still exists.

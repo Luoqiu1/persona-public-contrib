@@ -88,6 +88,22 @@ type WorktreePrepare struct {
 	ChooseParent bool `json:"choose_parent,omitempty"`
 	// AutomaticName permits an unnamed create. The host owns naming when supported, otherwise the node chooses a unique name.
 	AutomaticName bool `json:"automatic_name,omitempty"`
+	// Composer exposes the owning runtime's creation choices; absent on older nodes.
+	Composer *WorktreeComposer `json:"composer,omitempty"`
+}
+
+type WorktreeComposer struct {
+	Capabilities []string         `json:"capabilities"`
+	Project      string           `json:"project"`
+	BaseRef      string           `json:"base_ref"`
+	Refs         []string         `json:"refs"`
+	Presets      []WorktreePreset `json:"presets"`
+}
+
+type WorktreePreset struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name,omitempty"`
+	Directories []string `json:"directories"`
 }
 
 // WorktreeAdded is the worktree worktree.add made for a new agent (#6115): its checkout, its branch, the repository's root.

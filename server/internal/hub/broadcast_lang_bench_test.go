@@ -11,7 +11,7 @@ func benchLangClients(h *Hub, n int) {
 	langs := []i18n.Lang{i18n.En, i18n.ZhHans, i18n.Ja}
 	for i := range n {
 		c := &client{hub: h, out: make(chan []byte, 4), acceptLang: langs[i%len(langs)], urlFeatures: map[string]bool{extensionOperationsFeature: true}}
-		h.clients[c] = struct{}{}
+		addTestClient(h, c)
 	}
 }
 
@@ -36,6 +36,21 @@ func BenchmarkBroadcastExtensionOperation(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		h.toWanting(extensionOperationsFeature, msg)
+		benchDrain(h)
+	}
+}
+
+// BenchmarkBroadcastRawExtensionOperation measures the event-log broadcast path with the same 12 apps and three
+// languages as BenchmarkBroadcastExtensionOperation.
+func BenchmarkBroadcastRawExtensionOperation(b *testing.B) {
+	h := &Hub{clients: map[*client]struct{}{}}
+	benchLangClients(h, 12)
+	msg := []byte(`{"type":"extension_operation","manager":"extmgr","operation":{"id":"op-1","kind":"install","extension":"example",` +
+		`"status":"running","steps":[{"id":"download","state":"running","progress":0.42,"bytes":44040192,"total":104857600},` +
+		`{"id":"nodes","state":"running","machines":{"done":["m1","m2"],"errors":{"m3":"SSH diagnostic: refused"}}}]}}`)
+	b.ReportAllocs()
+	for b.Loop() {
+		h.broadcastRaw(extensionOperationEvent, msg)
 		benchDrain(h)
 	}
 }

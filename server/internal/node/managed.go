@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nwverse/persona/server/internal/extension/sandbox"
 	"github.com/nwverse/persona/server/internal/identity"
@@ -19,18 +20,25 @@ import (
 	"github.com/nwverse/persona/server/internal/nodeclient"
 	"github.com/nwverse/persona/server/internal/osproc"
 	"github.com/nwverse/persona/server/internal/proto"
+	"github.com/nwverse/persona/server/internal/rpc"
 )
 
-// Launchers kept by the hub ("Settings › Model", docs/integrations/launchers.md): the hub sends them (keys included) on connect and on
-// every change; they live only in this process's memory. A managed launcher runs as `personad launch <name> …`, which
-// asks this node over the local socket for its settings and execs claude with them: the key is never written to a
-// file, typed into a terminal or put on a command line.
+// Launchers kept by the hub ("Settings › Model", docs/integrations/launchers.md): the manager names the ones in this
+// computer's scope on connect and on every change (launchers.catalog), the secrets of each withheld; they come when the
+// node needs them (launchers.pull) and stay in this process's memory. A manager from before the catalog sends them all
+// with their secrets (launchers.managed). A managed launcher runs as `personad launch <name> …`, which asks this node
+// over the local socket for its settings and execs claude with them: the key is never written to a file, typed into a
+// terminal or put on a command line.
 
 type managedLaunchers struct {
 	mu   sync.Mutex
-	byID map[string]proto.ManagedLauncher
+	byID map[string]proto.ManagedLauncher // the catalog: a withheld entry has no secrets
+	full map[string]proto.ManagedLauncher // what was pulled of the withheld ones, at their Rev
+	// pull lets one pull of a name go out at a time (the others wait and use it).
+	pull sync.Map // name → *sync.Mutex
 }
 
+// setManaged is launchers.managed (an older manager): every entry with its secrets.
 func (n *Node) setManaged(list []proto.ManagedLauncher) {
 	m := map[string]proto.ManagedLauncher{}
 	for _, l := range list {
@@ -38,18 +46,128 @@ func (n *Node) setManaged(list []proto.ManagedLauncher) {
 		if l.Kind == "api" && l.API != "" && l.API != "messages" {
 			continue
 		}
+		l.Withheld = false
 		m[l.Name] = l
 	}
 	n.managed.mu.Lock()
-	n.managed.byID = m
+	n.managed.byID, n.managed.full = m, nil
 	n.managed.mu.Unlock()
 }
 
+// setCatalog is launchers.catalog: the providers in this computer's scope. What was pulled stays while the provider is
+// still named at the same Rev; a pushed one (delivery push) is fetched right away, in the background.
+func (n *Node) setCatalog(list []proto.ManagedLauncher) {
+	m := map[string]proto.ManagedLauncher{}
+	var prefetch []string
+	for _, l := range list {
+		if l.Kind == "api" && l.API != "" && l.API != "messages" {
+			continue
+		}
+		m[l.Name] = l
+		if l.Withheld && l.Pushed() {
+			prefetch = append(prefetch, l.Name)
+		}
+	}
+	n.managed.mu.Lock()
+	full := map[string]proto.ManagedLauncher{}
+	for name, f := range n.managed.full {
+		if c, ok := m[name]; ok && c.Withheld && c.Rev == f.Rev {
+			full[name] = f
+		}
+	}
+	n.managed.byID, n.managed.full = m, full
+	n.managed.mu.Unlock()
+	if len(prefetch) > 0 {
+		go func() {
+			for _, name := range prefetch {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				if err := n.ensureManaged(ctx, name); err != nil {
+					n.logf("launcher %s: not kept on this computer: %v", name, err)
+				}
+				cancel()
+			}
+		}()
+	}
+}
+
+// managedLauncher is the managed launcher by name: with its secrets once they are here (a withheld one before its
+// pull has none; ensureManaged fetches them).
 func (n *Node) managedLauncher(name string) (proto.ManagedLauncher, bool) {
 	n.managed.mu.Lock()
 	defer n.managed.mu.Unlock()
 	l, ok := n.managed.byID[name]
+	if ok && l.Withheld {
+		if f, pulled := n.managed.full[name]; pulled && f.Rev == l.Rev {
+			return f, true
+		}
+	}
 	return l, ok
+}
+
+// managedCatalog is the entry as the catalog has it (never what was pulled): what an execution's fingerprint is made of,
+// the same before and after a pull.
+func (n *Node) managedCatalog(name string) (proto.ManagedLauncher, bool) {
+	n.managed.mu.Lock()
+	defer n.managed.mu.Unlock()
+	l, ok := n.managed.byID[name]
+	return l, ok
+}
+
+// errManagerAway: a withheld provider's secrets were never fetched and the manager cannot be asked now.
+func errManagerAway(name string) error {
+	return fmt.Errorf("cannot reach the hub to fetch the settings of %s; they come when it is back "+
+		"(for launches while the hub is away, turn on “Keep a copy on each computer” in the provider's Devices)", name)
+}
+
+// ensureManaged fetches a withheld provider's secrets from the manager when this process does not have them at its
+// Rev; nil for anything else (a launcher that is not managed, one that came with its secrets).
+func (n *Node) ensureManaged(ctx context.Context, name string) error {
+	l, ok := n.managedCatalog(name)
+	if !ok || !l.Withheld {
+		return nil
+	}
+	mu, _ := n.managed.pull.LoadOrStore(name, &sync.Mutex{})
+	mu.(*sync.Mutex).Lock()
+	defer mu.(*sync.Mutex).Unlock()
+	if got, _ := n.managedLauncher(name); !got.Withheld {
+		return nil // another pull brought them meanwhile
+	}
+	peer := n.peer
+	if peer == nil {
+		return errManagerAway(name)
+	}
+	params := map[string]any{"name": name}
+	if l.SkipsOwnService() { // the manager decides with what this computer has of its own
+		st := n.ownService(ctx, l.AgentType())
+		params["own_service"] = st
+	}
+	var res struct {
+		Launcher proto.ManagedLauncher `json:"launcher"`
+	}
+	if err := peer.Call(ctx, "launchers.pull", params, &res); err != nil {
+		var re *rpc.Error
+		if errors.As(err, &re) && re.Code != "" {
+			return re // the manager's refusal (out of scope, own service), in the user's language
+		}
+		if errors.Is(err, rpc.ErrClosed) || errors.Is(err, context.DeadlineExceeded) {
+			return errManagerAway(name)
+		}
+		return fmt.Errorf("fetch the settings of %s: %w", name, err)
+	}
+	f := res.Launcher
+	if f.Name != name {
+		return fmt.Errorf("fetch the settings of %s: the hub answered for %q", name, f.Name)
+	}
+	f.Withheld, f.Rev = false, l.Rev
+	n.managed.mu.Lock()
+	defer n.managed.mu.Unlock()
+	if c, still := n.managed.byID[name]; still && c.Withheld && c.Rev == l.Rev {
+		if n.managed.full == nil {
+			n.managed.full = map[string]proto.ManagedLauncher{}
+		}
+		n.managed.full[name] = f
+	}
+	return nil
 }
 
 // launcherCommand is what starts claude for a launcher name in a shell: the name itself (a ~/.zshrc function, or
@@ -167,12 +285,13 @@ func Launch(ctx context.Context, name string, args []string) error {
 		return fmt.Errorf("personad launch %s: %w", name, err)
 	}
 	var resp struct {
-		Agent string   `json:"agent"`
-		Model string   `json:"model"`
-		Env   []string `json:"env"`
-		Clear []string `json:"clear"` // what to drop from the shell's env first (envClearFor)
-		Args  []string `json:"args"`
-		Error string   `json:"error"`
+		Agent  string   `json:"agent"`
+		Model  string   `json:"model"`
+		Effort string   `json:"effort"`
+		Env    []string `json:"env"`
+		Clear  []string `json:"clear"` // what to drop from the shell's env first (envClearFor)
+		Args   []string `json:"args"`
+		Error  string   `json:"error"`
 		// for a provider whose bypass list joins the inherited ones (mergesNoProxy): the user's settings env's lists, which
 		// come before the shell's. An older node does not send it: the provider's list alone.
 		NoProxyMerge map[string]string `json:"no_proxy_merge"`
@@ -211,18 +330,34 @@ func Launch(ctx context.Context, name string, args []string) error {
 		// What the launcher sets replaces the shell's: with both, the agent would read the shell's (the first).
 		env = append(withoutEnv(os.Environ(), envNames(resp.Env)), resp.Env...)
 	}
+	argv := launchArgv(agent, args, resp.Args, resp.Effort, resp.Model, resp.Env)
+	exe, argv, env, _ = launchExec(agent, exe, argv, env)
+	return osproc.Exec(exe, argv, env)
+}
+
+// launchArgv builds the argument vector for starting an agent.
+// For Claude Code, provider effort is passed as --effort only when the arguments carry no --effort (#2307).
+func launchArgv(agent string, args, respArgs []string, respEffort, respModel string, respEnv []string) []string {
 	hasModelArg := false
 	hasSettingsArg := false
+	hasEffortArg := false
+	cleanRespArgs := slices.Clone(respArgs)
 	for _, arg := range args {
+		if arg == "--effort" || strings.HasPrefix(arg, "--effort=") {
+			hasEffortArg = true
+		}
 		if arg == "-m" || arg == "--model" || strings.HasPrefix(arg, "--model=") {
 			hasModelArg = true
-			resp.Args = withoutModelArgs(resp.Args)
+			cleanRespArgs = withoutModelArgs(cleanRespArgs)
 		}
 		if arg == "--settings" || strings.HasPrefix(arg, "--settings=") {
 			hasSettingsArg = true
 		}
 	}
-	for _, arg := range resp.Args {
+	for _, arg := range cleanRespArgs {
+		if arg == "--effort" || strings.HasPrefix(arg, "--effort=") {
+			hasEffortArg = true
+		}
 		if arg == "-m" || arg == "--model" || strings.HasPrefix(arg, "--model=") {
 			hasModelArg = true
 		}
@@ -230,22 +365,25 @@ func Launch(ctx context.Context, name string, args []string) error {
 			hasSettingsArg = true
 		}
 	}
-	launchArgs := append([]string{agent}, resp.Args...)
-	if agent == "codex" && resp.Model != "" && !hasModelArg {
-		launchArgs = append(launchArgs, "-m", resp.Model)
+	launchArgs := append([]string{agent}, cleanRespArgs...)
+	if agent == "claude" {
+		if respEffort != "" && !hasEffortArg {
+			launchArgs = append(launchArgs, "--effort", respEffort)
+		}
+	} else if agent == "codex" && respModel != "" && !hasModelArg {
+		launchArgs = append(launchArgs, "-m", respModel)
 	} else if agent == "agy" {
-		if resp.Model != "" && !hasModelArg {
-			launchArgs = append(launchArgs, "--model", resp.Model)
+		if respModel != "" && !hasModelArg {
+			launchArgs = append(launchArgs, "--model", respModel)
 		}
-		for _, kv := range resp.Env {
+		for _, kv := range respEnv {
 			if strings.HasPrefix(kv, "GEMINI_API_KEY=") && len(kv) > len("GEMINI_API_KEY=") && !hasSettingsArg {
 				launchArgs = append(launchArgs, "--settings", `{"modelProvider":"gemini"}`)
 				break
 			}
 		}
 	}
-	exe, argv, env, _ := launchExec(agent, exe, append(launchArgs, args...), env)
-	return osproc.Exec(exe, argv, env)
+	return append(launchArgs, args...)
 }
 
 // launchExec is what `personad launch` execs (exe, argv, env; argv[0] is the agent's name): in the agent sandbox when
@@ -272,13 +410,27 @@ func launchExec(agent, exe string, argv, env []string) (string, []string, []stri
 	return wrapped[0], wrapped, wenv, st
 }
 
-// launcherEnv answers `personad launch` on the local socket.
+// launcherEnv answers `personad launch` on the local socket: a withheld provider's secrets are fetched first.
 func (n *Node) launcherEnv(name string) map[string]any {
 	l, ok := n.managedLauncher(name)
 	if !ok {
 		return map[string]any{"error": "no launcher " + name + " in Persona (设置 › 模型), or the hub has not sent it yet"}
 	}
+	if l.Withheld {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		err := n.ensureManaged(ctx, name)
+		cancel()
+		if err != nil {
+			return map[string]any{"error": err.Error()}
+		}
+		if l, _ = n.managedLauncher(name); l.Withheld {
+			return map[string]any{"error": errManagerAway(name).Error()}
+		}
+	}
 	out := map[string]any{"env": managedEnv(l), "clear": envClearFor(l), "args": l.Args, "agent": l.AgentType(), "model": l.Model}
+	if effort := launcherDefaultEffort(l); effort != "" {
+		out["effort"] = effort
+	}
 	if mergesNoProxy(l) {
 		out["no_proxy_merge"] = n.userNoProxy(l)
 	}

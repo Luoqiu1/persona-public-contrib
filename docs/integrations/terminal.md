@@ -643,7 +643,7 @@ Same shape as Moshi `worktree/prepare` + `worktree/create`.
 
 ### Advanced Orca worktree actions
 
-The local Orca adapter also provides a capability-gated composer, GitHub issue/PR source lookup and sparse presets. The exact HTTP fields, adapter/runtime capability distinction and creation receipts are specified in [the protocol](../protocol/protocol.md#orca-worktree-composer-and-removal). Legacy branch/path creation remains available.
+The local Orca adapter also provides a capability-gated composer, GitHub issue/PR source lookup, sparse presets and preview-confirmed workspace removal. The exact HTTP fields, adapter/runtime capability distinction, receipt handling and deletion reconciliation are specified in [the protocol](../protocol/protocol.md#orca-worktree-composer-and-removal). Legacy branch/path creation remains available. Removal keeps branches by default, unregisters folder workspaces without deleting their directories, and requires a fresh instance-bound preview when identity or dirty content changes. A background acknowledgement is not completion; clients reconcile without automatically repeating the destructive request.
 
 ### A new agent in a worktree (#6115)
 

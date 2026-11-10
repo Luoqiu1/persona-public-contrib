@@ -8,8 +8,6 @@ import (
 	"github.com/nwverse/persona/server/internal/orcart/orcarttest"
 )
 
-var composerTestCapabilities = []string{"worktree.open-existing-branch.v2-request.v1", "worktree.create.exact-name.v1", "worktree.set.folder-parent.v1"}
-
 func composerNode(t *testing.T) *orcaWorktreeFixture {
 	t.Helper()
 	w := orcaWorktreeNode(t)

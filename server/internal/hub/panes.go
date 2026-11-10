@@ -171,6 +171,7 @@ var nodeActions = map[string]nodeAction{
 		requiredUnless: map[string][]string{"auto_name": {"branch", "path"}}},
 	"worktree/source": {method: "worktree.source", timeout: 35 * time.Second, required: []string{"workspace_id", "kind"}, optional: []string{"query", "locale"}},
 	"worktree/preset": {method: "worktree.preset", timeout: 30 * time.Second, required: []string{"workspace_id", "kind", "name", "directories"}, optional: []string{"locale"}},
+	"worktree/delete": {method: "worktree.delete", timeout: 150 * time.Second, required: []string{"workspace_id", "kind"}, optional: []string{"preview_token", "locale"}, flags: []string{"preview", "reconcile", "force", "delete_branch"}, strictFlags: []string{"preview", "reconcile", "force", "delete_branch"}},
 	// #6115 a new agent in a worktree of its own: made from its folder, told apart, removed when it is closed and the
 	// user says so (the node refuses uncommitted work and unmerged branches unless force, which the user confirms).
 	"worktree/add":    {method: "worktree.add", timeout: 150 * time.Second, required: []string{"cwd"}, optional: []string{"branch", "name_hint", "kind"}},
@@ -196,6 +197,7 @@ func (h *Hub) paneRoutes(api *http.ServeMux) {
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/create", h.withClientOp("worktree_create", h.nodeAction(nodeActions["worktree/create"])))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/source", h.nodeAction(nodeActions["worktree/source"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/preset", h.nodeAction(nodeActions["worktree/preset"]))
+	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/delete", h.nodeAction(nodeActions["worktree/delete"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/rename", h.nodeAction(nodeActions["worktree/rename"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/add", h.nodeAction(nodeActions["worktree/add"]))
 	api.HandleFunc("POST /api/v1/machines/{mid}/worktree/status", h.nodeAction(nodeActions["worktree/status"]))

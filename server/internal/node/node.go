@@ -1073,6 +1073,8 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 		return n.worktreeSources(worktreeComposerContext(ctx, params), p.Kind, p.WorkspaceID, params)
 	case "worktree.preset":
 		return n.worktreeSavePreset(worktreeComposerContext(ctx, params), p.Kind, p.WorkspaceID, params)
+	case "worktree.delete":
+		return n.worktreeDelete(worktreeComposerContext(ctx, params), p.Kind, p.WorkspaceID, params)
 	case "worktree.add", "worktree.status", "worktree.remove": // a new agent's own worktree (agentworktree.go, #6115)
 		var a struct {
 			NameHint     string `json:"name_hint"`

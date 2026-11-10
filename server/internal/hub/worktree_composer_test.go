@@ -55,6 +55,7 @@ func TestWorktreeComposerMountedRoutesAndReceipt(t *testing.T) {
 		"prepare": `{"workspace_id":"w1","kind":"orca","composer":true,"locale":"ja"}`,
 		"source":  `{"workspace_id":"w1","kind":"orca","query":"42"}`,
 		"preset":  `{"workspace_id":"w1","kind":"orca","name":"UI","directories":"src\nshared"}`,
+		"delete":  `{"workspace_id":"w1","kind":"orca","preview_token":"opaque","force":true,"allowFailedArchiveHook":true,"allowUnverifiedPtyStop":true}`,
 	} {
 		path := "/api/v1/machines/machine/worktree/" + action
 		for _, role := range []string{roleAnswer, roleLink, roleExtension} {

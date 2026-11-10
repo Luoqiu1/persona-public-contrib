@@ -199,18 +199,10 @@ export function openNewWorktree(node: Pick<MenuNode, "mid" | "workspaceId" | "ho
   openers.forEach((l) => l(request));
 }
 
-/** Opens the child composer with source and visual placement kept independently. */
-export function openChildWorktree(parent: WorkspaceTarget, options: { source?: WorkspaceTarget; changed?: () => void; onCreated?: WorktreeRequest["onCreated"] } = {}) {
-  const bind = (t: WorkspaceTarget): WorkspaceTarget => ({ ...t, owner: t.owner ?? credentialOwner(),
-    manager: t.manager ?? (getState().machines.find((m) => m.id === t.machineId)?.manager || defaultManager()) });
-  const source = bind(options.source ?? parent);
-  const request: WorktreeRequest = { target: { mid: source.machineId, workspaceId: source.workspaceId, host: source.host,
-    label: source.label, cwd: source.cwd, owner: source.owner, manager: source.manager }, source, parent: bind(parent),
-    changed: options.changed ?? (() => {}), onCreated: options.onCreated };
+/** Delivers an already assembled creation request to the app shell. */
+export function emitWorktreeRequest(request: WorktreeRequest) {
   openers.forEach((l) => l(request));
 }
-
-export const openNewWorktreeFromTarget = openChildWorktree;
 
 export function onOpenNewWorktree(l: (r: WorktreeRequest) => void) {
   openers.add(l);

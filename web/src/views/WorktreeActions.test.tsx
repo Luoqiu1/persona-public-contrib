@@ -19,7 +19,7 @@ const mock = vi.hoisted(() => ({
 vi.mock("../lib/workspace-catalog", async (original) => ({ ...await original<typeof import("../lib/workspace-catalog")>(), useWorkspaceCatalog: () => mock.catalog, refreshWorkspaceCatalog: mock.refresh }));
 vi.mock("../lib/store", () => ({ getState: () => mock.state, useStore: (select: (state: typeof mock.state) => unknown) => select(mock.state) }));
 vi.mock("../lib/new-agent", () => ({ openNewAgent: mock.openAgent }));
-vi.mock("../lib/worktree", () => ({ openChildWorktree: mock.child }));
+vi.mock("../lib/worktree-creation", () => ({ openChildWorktree: mock.child }));
 vi.mock("../lib/router", () => ({ navigate: mock.navigate }));
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let target: OwnedWorkspaceTarget;

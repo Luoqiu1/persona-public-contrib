@@ -1,5 +1,13 @@
 # Lessons: web UI and interactions
 
+## A panel's entry point is not its displayed conversation (#3562)
+
+A task panel embeds its selected Agent's `ChatView`, but its header menu used the task's route for **Open in new window**. Build that destination from the same selected machine/session pair passed to the chat, including after switching Agents and before the session roster arrives. Only a task panel without an Agent opens the task page; the chat's separate linked-task action retains its own destination. Regress the real side panel, chat header and menu together, not only a route helper.
+
+## Fixture display labels can match a deployment's private values (#3552)
+
+Generic fixture IDs are not enough: a display name can still match a configured machine identifier and block the mandatory prebuild privacy scan on another machine. Use neutral test labels, and update their expected summaries and click targets together without changing IDs or assertions. Keep privacy checks enabled; do not exempt a configured value just to make a fixture pass.
+
 ## Ancestor package metadata can break Vite config loading (#3301)
 
 When Vite/esbuild reports invalid `package.json` content outside the checkout, inspect the exact reported ancestor: the web package can be valid while package-scope resolution reads a broken parent file. A successful Go build does not prove that the bundled web build or deployment succeeded. Do not change application code or overwrite another worker's shared file just to silence this error.
@@ -795,3 +803,19 @@ other way and listed every slot ever dispatched, closed ones included. "Open" is
 An Agent collection cannot serve as a workspace inventory: empty ancestors disappear, and pinning or filtering can remove the only row carrying a parent edge. Keep discovery independent of the board and count actual Agents separately from catalog containers. Bind actions to credential generation, manager, computer, host and runtime workspace ID; matching paths do not grant ownership. A combined browser fixture must stamp its sessions and discovery with the same manager, or it correctly exercises isolation instead of navigation.
 
 The current assistant and the roster's default are different scopes. Workspace discovery and management entry points follow `shownManager`, while an item without a manager still belongs to `defaultManager`. A choice change must cancel reads and invalidate deletion previews immediately, even if the user switches back before a response arrives; subscribing only to changes of the roster's default misses that transition.
+
+## Preserve referenced design section numbers during integration
+
+When parallel design additions occupy the same section number, keep the upstream
+section and its references together. Move the feature section to the next free
+number instead of replacing either contract (#3223). The pending-request rules
+remain section 4.8; workspace selection and management follow in section 4.9.
+
+## Keep workspace action resolution behind its lazy entry
+
+A lazy menu still adds to the first screen when its always-mounted opener imports
+its permission and catalog resolvers. Keep only request routing and immediate scope
+invalidation in that opener module; import resolution and child-request assembly
+from the lazy menu (#3223).
+Check the real production bundle against the fixed main baseline and retain the
+same owner, manager, host and workspace safety checks.

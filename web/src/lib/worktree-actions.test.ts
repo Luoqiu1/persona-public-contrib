@@ -4,7 +4,8 @@ import { setToken, credentialOwner } from "./api";
 import { chooseManager, resetManagerChoice, setRosterDefault } from "./manager-choice";
 import type { Machine, Session } from "./types";
 import type { HostWorkspace, WorkspaceCatalogSnapshot } from "./workspace-catalog";
-import { firstDirectWorktreeAgent, resolveWorktreeAction, type OwnedWorkspaceTarget } from "./worktree-actions";
+import type { OwnedWorkspaceTarget } from "./worktree-actions";
+import { firstDirectWorktreeAgent, resolveWorktreeAction } from "./worktree-actions-context";
 
 let target: OwnedWorkspaceTarget;
 let catalog: WorkspaceCatalogSnapshot;

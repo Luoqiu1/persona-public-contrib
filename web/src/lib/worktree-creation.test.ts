@@ -4,8 +4,8 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { credentialOwner, setToken } from "./api";
 import { getState } from "./store";
 import { setRosterDefault } from "./manager-choice";
-import { creationSession, creationBody, createdWorkspace, type CreationDraft } from "./worktree-creation";
-import { onOpenNewWorktree, openChildWorktree, type WorktreePrepare, type WorktreeRequest } from "./worktree";
+import { creationSession, creationBody, createdWorkspace, openChildWorktree, type CreationDraft } from "./worktree-creation";
+import { onOpenNewWorktree, type WorktreePrepare, type WorktreeRequest } from "./worktree";
 
 vi.mock("./workspace-catalog", () => ({ refreshWorkspaceCatalog: vi.fn().mockResolvedValue(undefined) }));
 

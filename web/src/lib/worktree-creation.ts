@@ -4,7 +4,7 @@ import { uuid } from "./format";
 import { defaultManager } from "./manager-choice";
 import { getState } from "./store";
 import { refreshWorkspaceCatalog } from "./workspace-catalog";
-import { branchProblem, formProblem, suggestedPath, isWorktreeCreated, sendWorktreeCreate, worktreeReceipt, worktreeAdmission,
+import { emitWorktreeRequest, branchProblem, formProblem, suggestedPath, isWorktreeCreated, sendWorktreeCreate, worktreeReceipt, worktreeAdmission,
   type WorktreeTarget, type WorktreeRequest, type WorktreePrepare, type WorktreeCreateBody, type WorktreeCreated, type WorktreeSource } from "./worktree";
 import type { WorkspaceTarget } from "./workspace-target";
 
@@ -191,3 +191,16 @@ export async function creationSession(request: WorktreeRequest): Promise<Worktre
   sessions.set(`${owner}:${key}`, session);
   return session;
 }
+
+/** Opens the child composer with source and visual placement kept independently. */
+export function openChildWorktree(parent: WorkspaceTarget, options: { source?: WorkspaceTarget; changed?: () => void; onCreated?: WorktreeRequest["onCreated"] } = {}) {
+  const bind = (t: WorkspaceTarget): WorkspaceTarget => ({ ...t, owner: t.owner ?? credentialOwner(),
+    manager: t.manager ?? (getState().machines.find((m) => m.id === t.machineId)?.manager || defaultManager()) });
+  const source = bind(options.source ?? parent);
+  const request: WorktreeRequest = { target: { mid: source.machineId, workspaceId: source.workspaceId, host: source.host,
+    label: source.label, cwd: source.cwd, owner: source.owner, manager: source.manager }, source, parent: bind(parent),
+    changed: options.changed ?? (() => {}), onCreated: options.onCreated };
+  emitWorktreeRequest(request);
+}
+
+export const openNewWorktreeFromTarget = openChildWorktree;

@@ -10,9 +10,8 @@ import { openNewAgent } from "../lib/new-agent";
 import { navigate } from "../lib/router";
 import { getState, useStore } from "../lib/store";
 import { refreshWorkspaceCatalog, useWorkspaceCatalog } from "../lib/workspace-catalog";
-import { closeWorktreeActions, firstDirectWorktreeAgent, resolveWorktreeAction,
-  worktreeActionKey, worktreeActionsCurrent, worktreeSafetyStamp,
-  type WorktreeActionsRequest } from "../lib/worktree-actions";
+import { closeWorktreeActions, worktreeActionsCurrent, type WorktreeActionsRequest } from "../lib/worktree-actions";
+import { firstDirectWorktreeAgent, resolveWorktreeAction, worktreeActionKey, worktreeSafetyStamp } from "../lib/worktree-actions-context";
 import { WorktreeMutation } from "../lib/worktree-actions-state";
 import { copyText, Menu, toast } from "../ui/atoms";
 import type { MenuItem } from "../ui/menu-model";
@@ -120,7 +119,7 @@ export function ActiveWorktreeActions({ request, registry, onOpenWorkspace, sess
     { key: "new-agent", label: t("worktree-actions.new_agent"), icon: "agent", disabled: !context.writable, onSelect: () => run(() => openNewAgent({ workspace: target }), true) },
     ...(context.canCreate ? [{ key: "child", label: t("worktree-actions.new_child"), icon: "git" as const, inline: true, onSelect: async () => {
       // Recheck the originating target after loading the child composer.
-      const { openChildWorktree } = await import("../lib/worktree");
+      const { openChildWorktree } = await import("../lib/worktree-creation");
       if (!current() || !resolve().canCreate) return;
       close();
       openChildWorktree(target, { changed: () => {

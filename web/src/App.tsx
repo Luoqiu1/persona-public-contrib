@@ -31,7 +31,7 @@ import { RequestPage } from "./views/RequestPage";
 import { Home } from "./views/Home";
 import { PersonaAssistant } from "./views/PersonaAssistant";
 import { Login } from "./views/Login";
-import { NewWorktreeHost } from "./views/NewWorktree";
+import { NewWorktreeHost } from "./views/NewWorktreeHost";
 import { WorktreeActionsHost } from "./views/WorktreeActions";
 import { openWorktreeActions } from "./lib/worktree-actions";
 import { selectWorkspace } from "./lib/workspace-selection";

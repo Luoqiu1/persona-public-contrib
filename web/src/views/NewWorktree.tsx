@@ -7,15 +7,9 @@ import { useStore } from "../lib/store";
 import { useWorkspaceCatalog, workspaceTarget } from "../lib/workspace-catalog";
 import type { WorkspaceTarget } from "../lib/workspace-target";
 import { createdWorkspace, creationSession, repositoryDraft, samePlacement, sourceKey, type WorktreeCreationSession } from "../lib/worktree-creation";
-import { onOpenNewWorktree, openCreated, prepareWorktree, saveWorktreePreset, suggestedPath, typeBranch, typePath, worktreeAdmission,
+import { openCreated, prepareWorktree, saveWorktreePreset, suggestedPath, typeBranch, typePath, worktreeAdmission,
   worktreeProblem, worktreeSources, WORKTREE_COPY, type WorktreePrepare, type WorktreeRequest, type WorktreeSource, type WorktreeTarget } from "../lib/worktree";
 import { Button, cx, Dialog, Spinner } from "../ui/atoms";
-
-export function NewWorktreeHost() {
-  const [request, setRequest] = useState<WorktreeRequest | null>(null);
-  useEffect(() => onOpenNewWorktree(setRequest), []);
-  return request ? <NewWorktree key={JSON.stringify([request.target, request.source, request.parent])} request={request} onClose={() => setRequest(null)} /> : null;
-}
 
 export function NewWorktree({ request, onClose }: { request: WorktreeRequest; onClose: () => void }) {
   const [loaded, setLoaded] = useState<{ request: WorktreeRequest; session: WorktreeCreationSession }>();

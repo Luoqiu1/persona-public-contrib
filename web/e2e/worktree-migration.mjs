@@ -43,6 +43,11 @@ try {
       });
       const page = await context.newPage();
       page.setDefaultTimeout(15000);
+      // Exercise the phone menu-to-sheet handoff even when its first composer chunk is still on the wire.
+      if (width === 390) await page.route("**/NewWorktree-*.js", async (route) => {
+        await new Promise((done) => setTimeout(done, 100));
+        await route.continue();
+      });
       page.on("pageerror", (error) => failures.push(String(error)));
       let launches = 0;
       page.on("request", (request) => { if (request.method() === "POST" && new URL(request.url()).pathname === "/api/v1/sessions") launches++; });

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setToken, credentialOwner } from "./api";
-import { resetManagerChoice, setRosterDefault } from "./manager-choice";
+import { chooseManager, resetManagerChoice, setRosterDefault } from "./manager-choice";
 import type { Machine, Session } from "./types";
 import type { HostWorkspace, WorkspaceCatalogSnapshot } from "./workspace-catalog";
 import { firstDirectWorktreeAgent, resolveWorktreeAction, type OwnedWorkspaceTarget } from "./worktree-actions";
@@ -20,6 +20,14 @@ beforeEach(() => {
 afterEach(() => resetManagerChoice());
 
 describe("exact worktree action admission", () => {
+  it("uses the chosen assistant's catalog and rejects the previous assistant's target", () => {
+    chooseManager("other");
+    expect(resolve().writable).toBe(false);
+    catalog = { ...catalog, manager: "other" };
+    target = { ...target, manager: "other" };
+    machines = [{ ...machines[0], manager: "other" }];
+    expect(resolve().canRename).toBe(true);
+  });
   it("resolves same-host cross-project parent without guessing by directory", () => {
     catalog.workspaces[0].parent_source_id = "parent";
     catalog.workspaces[0].project_id = "other-project";

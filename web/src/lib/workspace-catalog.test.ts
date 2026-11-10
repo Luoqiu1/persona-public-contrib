@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WorkspaceCatalog, workspaceKey, workspaceTarget, type HostWorkspace } from "./workspace-catalog";
+import { WorkspaceCatalog, workspaceCatalogOwner, workspaceKey, workspaceTarget, type HostWorkspace } from "./workspace-catalog";
+import { credentialOwner, setToken } from "./api";
+import { chooseManager, resetManagerChoice, setRosterDefault } from "./manager-choice";
 
 const scope = { owner: "credential-a", manager: "manager-a" };
 const row = (title = "Main"): HostWorkspace => ({ id: "qualified-id", machine_id: "machine-a", source: "orca", source_id: "project::/code/app", title, cwd: "/code/app", project_name: "App", is_main: true });
@@ -9,6 +11,22 @@ const transport = (read: () => Promise<unknown>) => vi.fn(read) as unknown as <T
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("independent workspace catalog", () => {
+  it("pins the chosen assistant and rejects a former assistant's late inventory", async () => {
+    resetManagerChoice(); setRosterDefault("manager-a"); setToken("synthetic-catalog-choice");
+    try {
+      const read = deferred<{ workspaces: HostWorkspace[] }>();
+      const catalog = new WorkspaceCatalog(workspaceCatalogOwner(), transport(() => read.promise));
+      const pending = catalog.refresh();
+      chooseManager("manager-b");
+      expect(workspaceCatalogOwner()).toEqual({ owner: credentialOwner(), manager: "manager-b" });
+      read.resolve({ workspaces: [row()] });
+      await pending;
+      expect(catalog.snapshot().workspaces).toEqual([]);
+      const request = transport(async () => ({ workspaces: [row()] }));
+      await new WorkspaceCatalog(workspaceCatalogOwner(), request).refresh();
+      expect(request).toHaveBeenCalledWith("/workspaces", expect.objectContaining({ headers: { "X-Persona-Manager": "manager-b" } }));
+    } finally { resetManagerChoice(); setToken(""); }
+  });
   it("reads only /workspaces with explicit manager ownership and retains stable rows on unchanged/reordered snapshots", async () => {
     let rows = [row(), { ...row("Child"), source_id: "child" }];
     const request = transport(async () => ({ workspaces: rows }));

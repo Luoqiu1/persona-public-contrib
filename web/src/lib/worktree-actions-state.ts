@@ -1,6 +1,6 @@
 import { t } from "../i18n";
 import { api, enc, errorText, onCredentialChange } from "./api";
-import { defaultManager, MANAGER_HEADER, onDefaultManager } from "./manager-choice";
+import { MANAGER_HEADER, onManagerChoice } from "./manager-choice";
 import type { OwnedWorkspaceTarget, ResolvedWorktreeAction } from "./worktree-actions";
 
 export interface WorktreeDeletionPreview {
@@ -40,9 +40,7 @@ export class WorktreeMutation {
   constructor(readonly target: OwnedWorkspaceTarget, private deps: Dependencies) { this.activate(); }
   activate() {
     if (this.off.length) return;
-    this.off = [onCredentialChange(() => this.invalidate()), onDefaultManager((was) => {
-      if (was.id !== defaultManager()) this.invalidate();
-    })];
+    this.off = [onCredentialChange(() => this.invalidate()), onManagerChoice(() => this.invalidate())];
   }
   updateDependencies(deps: Dependencies) { this.deps = deps; }
   snapshot = () => this.state;

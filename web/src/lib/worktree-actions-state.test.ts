@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { credentialOwner, setToken } from "./api";
-import { resetManagerChoice, setRosterDefault } from "./manager-choice";
+import { chooseManager, resetManagerChoice, setRosterDefault } from "./manager-choice";
 import { WorktreeMutation, postWorktreeAction, type WorktreeActionPost, type WorktreeDeletionPreview } from "./worktree-actions-state";
 import type { OwnedWorkspaceTarget, ResolvedWorktreeAction } from "./worktree-actions";
 
@@ -91,11 +91,12 @@ describe("one-use safe removal", () => {
   });
 });
 for (const action of ["rename", "preview", "remove"] as const) {
-  for (const change of ["credential", "manager", "target", "availability"] as const) it(`fences a late ${action} result after ${change} changes`, async () => {
+  for (const change of ["credential", "manager", "choice", "target", "availability"] as const) it(`fences a late ${action} result after ${change} changes`, async () => {
     if (action === "remove") await ready();
     const pending = action === "rename" ? model.rename("new") : action === "preview" ? model.preview() : model.remove(false, false);
     if (change === "credential") { setToken("synthetic-other"); setToken("synthetic-mutations"); }
     if (change === "manager") { setRosterDefault("other"); setRosterDefault("manager"); }
+    if (change === "choice") { chooseManager("other"); chooseManager(null); }
     if (change === "target") { current = false; model.cancel(); }
     if (change === "availability") { context.writable = false; context.canRename = false; context.canDelete = false; model.invalidate(); }
     calls.at(-1)!.resolve(action === "rename" ? {} : action === "preview" ? preview() : done()); await pending;

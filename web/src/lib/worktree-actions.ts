@@ -4,7 +4,7 @@ import { contextMenuProps } from "../ui/context-menu";
 import type { MenuAt } from "../ui/menu-model";
 import { credentialOwner, onCredentialChange } from "./api";
 import { currentHosts } from "./engines";
-import { defaultManager, onDefaultManager } from "./manager-choice";
+import { defaultManager, shownManager, onManagerChoice } from "./manager-choice";
 import { sessionWorkspace } from "./agent-repos";
 import type { Machine, Session } from "./types";
 import { workspaceTarget, type HostWorkspace, type WorkspaceCatalogSnapshot } from "./workspace-catalog";
@@ -26,7 +26,7 @@ export interface WorktreeActionContext {
 export function resolveWorktreeAction(target: WorkspaceTarget, context: WorktreeActionContext) {
   const { catalog, machines, writable } = context;
   const owned = Boolean(target.owner && target.manager && target.owner === credentialOwner()
-    && target.manager === defaultManager() && catalog.owner === target.owner && catalog.manager === target.manager);
+    && target.manager === shownManager() && catalog.owner === target.owner && catalog.manager === target.manager);
   const matches = owned ? catalog.workspaces.filter((w) => w.machine_id === target.machineId
     && w.source === target.host && w.source_id === target.workspaceId && w.source !== "session-directory") : [];
   const workspace = matches.length === 1 && matches[0].cwd === target.cwd ? matches[0] : undefined;
@@ -92,7 +92,7 @@ export const worktreeActionProps = (target: WorkspaceTarget) => contextMenuProps
 
 // Close immediately on scope retirement, including an away-and-back change before React commits.
 onCredentialChange(() => { if (request) closeWorktreeActions(request.id); });
-onDefaultManager((was) => { if (was.id !== defaultManager() && request) closeWorktreeActions(request.id); });
+onManagerChoice(() => { if (request) closeWorktreeActions(request.id); });
 
 /** A catalog entry's safety-relevant metadata; title changes do not replace a runtime destination. */
 export function worktreeSafetyStamp(workspace: HostWorkspace): string {

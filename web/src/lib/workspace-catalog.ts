@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { api, credentialOwner, onCredentialChange, subscribeCredentialOwner } from "./api";
-import { defaultManager, MANAGER_HEADER, onDefaultManager, useKnownDefault } from "./manager-choice";
+import { shownManager, MANAGER_HEADER, onManagerChoice, useShownManager } from "./manager-choice";
 import { sameValue } from "./stable-lines";
 import type { WorkspaceTarget as RuntimeWorkspaceTarget } from "./workspace-target";
 
@@ -22,7 +22,7 @@ export interface WorkspaceCatalogSnapshot extends WorkspaceCatalogOwner { worksp
 export interface WorkspaceCatalogList { workspaces: HostWorkspace[]; errors?: { machine_id: string; source?: string; error: string }[] }
 
 export function workspaceCatalogOwner(): WorkspaceCatalogOwner {
-  return { owner: credentialOwner(), manager: defaultManager() };
+  return { owner: credentialOwner(), manager: shownManager() };
 }
 export function workspaceKey(w: Pick<HostWorkspace, "machine_id" | "source" | "source_id">, owner: string, manager: string): string {
   return JSON.stringify([owner, manager, w.machine_id, w.source, w.source_id]);
@@ -129,7 +129,7 @@ function catalogFor(scope: WorkspaceCatalogOwner): WorkspaceCatalog {
   return catalog;
 }
 // Retire in-flight reads immediately, including a switch away and back before a response completes.
-onDefaultManager((was) => { if (was.id !== defaultManager()) catalogs.forEach((catalog) => catalog.cancel()); });
+onManagerChoice(() => catalogs.forEach((catalog) => catalog.cancel()));
 onCredentialChange(() => catalogs.forEach((catalog) => catalog.cancel()));
 
 /** Refresh after an acknowledged mutation. Returning to a hidden page always refreshes before resuming polling. */
@@ -139,8 +139,7 @@ export function refreshWorkspaceCatalog(): Promise<void> {
 }
 export function useWorkspaceCatalog(enabled: boolean): WorkspaceCatalogSnapshot {
   const owner = useSyncExternalStore(subscribeCredentialOwner, credentialOwner, credentialOwner);
-  const known = useKnownDefault();
-  const manager = known || defaultManager();
+  const manager = useShownManager();
   const catalog = useMemo(() => catalogFor({ owner, manager }), [owner, manager]);
   const snapshot = useSyncExternalStore(catalog.subscribe, catalog.snapshot, catalog.snapshot);
   useEffect(() => enabled ? catalog.watch() : undefined, [catalog, enabled]);

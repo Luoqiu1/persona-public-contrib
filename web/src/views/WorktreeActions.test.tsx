@@ -33,9 +33,15 @@ let ordered: Session[] | undefined;
 const body = () => document.body.textContent || "";
 const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((el) => el.textContent === label)!;
 const item = (label: string) => [...document.querySelectorAll<HTMLElement>("[role=menuitem]")].find((el) => el.textContent?.includes(label))!;
-const click = async (element: HTMLElement) => act(async () => element.click());
+const click = async (element: HTMLElement) => {
+  await act(async () => element.click());
+  await act(async () => { await vi.dynamicImportSettled(); });
+};
 const reply = async (index: number, value: unknown, status = 200) => act(async () => requests[index].resolve(new Response(JSON.stringify(value), { status })));
-const open = async () => act(async () => openWorktreeActions(target, document.getElementById("opener")!));
+const open = async () => {
+  await act(async () => openWorktreeActions(target, document.getElementById("opener")!));
+  await act(async () => { await vi.dynamicImportSettled(); });
+};
 const render = async (readOnly = false) => act(async () => root.render(<StrictMode><button id="opener" {...worktreeActionProps(target)}>Workspace</button><WorktreeActionsButton target={target} /><WorktreeActionsHost readOnly={readOnly} sessions={ordered} onOpenWorkspace={mock.parent} /></StrictMode>));
 
 beforeEach(async () => {
@@ -108,7 +114,7 @@ it("opens only a direct ordered Agent including pins, and otherwise starts at th
 it("passes a real same-host cross-project parent to the leader callback and calls frozen M4 export", async () => {
   await open(); await click(item("Open parent worktree"));
   expect(mock.parent).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ workspaceId: "parent", machineId: "computer", host: "orca", owner: target.owner, manager: target.manager }));
-  await open(); await act(async () => { item("New child worktree").click(); await new Promise((done) => setTimeout(done, 10)); }); expect(mock.child).toHaveBeenCalledWith(target, { changed: expect.any(Function) });
+  await open(); await click(item("New child worktree")); expect(mock.child).toHaveBeenCalledWith(target, { changed: expect.any(Function) });
 });
 it("fails closed on restricted device roles and preserves copy navigation", async () => {
   deny = true; await open(); expect((item("New agent") as HTMLButtonElement).disabled).toBe(true);

@@ -112,7 +112,7 @@ export class WorktreeCreationSession {
   submit(info?: WorktreePrepare): Promise<void> {
     if (this.sending) return this.sending;
     const { draft } = this.snapshot;
-    if (!worktreeAdmission(draft.source)) return Promise.reject(new Error(t("worktree-composer.owner_changed")));
+    if (!worktreeAdmission(draft.source)) return Promise.reject(new Error(t("worktree.owner_changed")));
     let intent = this.snapshot.intent;
     if (intent?.phase === "created") return Promise.resolve();
     if (!intent || intent.phase === "refused") {
@@ -165,9 +165,9 @@ export async function creationSession(request: WorktreeRequest): Promise<Worktre
   const requested = request.source ? { ...request.target, mid: request.source.machineId, workspaceId: request.source.workspaceId, host: request.source.host,
     cwd: request.source.cwd, label: request.source.label, owner: request.source.owner, manager: request.source.manager } : request.target;
   const source: WorktreeTarget = { ...requested, owner: requested.owner ?? owner, manager: requested.manager ?? manager };
-  if (!worktreeAdmission(source)) throw new Error(t("worktree-composer.owner_changed"));
+  if (!worktreeAdmission(source)) throw new Error(t("worktree.owner_changed"));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  if (credentialOwner() !== owner || getToken() !== token || !worktreeAdmission(source)) throw new Error(t("worktree-composer.owner_changed"));
+  if (credentialOwner() !== owner || getToken() !== token || !worktreeAdmission(source)) throw new Error(t("worktree.owner_changed"));
   const partition = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
   const placement = request.parent === null ? "none" : request.parent ? JSON.stringify([request.parent.manager ?? manager, request.parent.machineId, request.parent.host, request.parent.workspaceId]) : "source";
   const key = `persona.worktree-create.v1.${partition}.${sourceKey(source)}.${placement}`;

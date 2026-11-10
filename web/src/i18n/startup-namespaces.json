@@ -177,6 +177,5 @@
   "workspace-board",
   "workspace-tree",
   "worktree",
-  "worktree-actions",
-  "worktree-composer"
+  "worktree-actions"
 ]

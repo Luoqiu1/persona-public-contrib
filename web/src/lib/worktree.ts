@@ -127,7 +127,7 @@ export function worktreeAdmission(target: WorktreeTarget): boolean {
 }
 
 export function worktreeHeaders(target: WorktreeTarget): Record<string, string> {
-  if (!worktreeAdmission(target)) throw new Error(tr("worktree-composer.owner_changed"));
+  if (!worktreeAdmission(target)) throw new Error(tr("worktree.owner_changed"));
   return { [MANAGER_HEADER]: target.manager || getState().machines.find((m) => m.id === target.mid)?.manager || defaultManager() };
 }
 
@@ -164,7 +164,7 @@ export function sendWorktreeCreate(t: WorktreeTarget, body: WorktreeCreateBody, 
 
 export async function createWorktree(t: WorktreeTarget, form: WorktreeForm): Promise<WorktreeCreated> {
   const result = await sendWorktreeCreate(t, { workspace_id: t.workspaceId, branch: form.branch.trim(), path: form.path.trim(), ...kindOf(t) });
-  if (!isWorktreeCreated(result)) throw new Error(tr("worktree-composer.unknown"));
+  if (!isWorktreeCreated(result)) throw new Error(tr("worktree.unknown"));
   return result;
 }
 

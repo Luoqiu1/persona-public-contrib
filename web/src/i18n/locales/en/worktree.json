@@ -20,5 +20,7 @@
   "branch_placeholder": "New branch name, or an existing local branch",
   "path_label": "Checkout path",
   "path_hint": "Follows the branch name until you edit it; clear it to follow again",
-  "note": "A new branch starts from this space's current commit. An existing local branch is checked out as it is."
+  "note": "A new branch starts from this space's current commit. An existing local branch is checked out as it is.",
+  "owner_changed": "This connection or manager has changed. Open the composer again from the workspace list.",
+  "unknown": "The result is not confirmed. Check the original request before creating anything else here."
 }

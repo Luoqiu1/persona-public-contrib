@@ -132,7 +132,7 @@ it("never shows pending/unknown as success and reuses the same request after reo
 it("blocks synchronous keyboard submit after credentials or manager ownership changes", async () => {
   await mount();
   await act(async () => { setToken("different-owner"); document.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
-  expect(creates()).toHaveLength(0); expect(document.body.textContent).toContain(t("worktree-composer.owner_changed"));
+  expect(creates()).toHaveLength(0); expect(document.body.textContent).toContain(t("worktree.owner_changed"));
 });
 
 it("keeps the basic old-node branch/path fallback and exposes no advanced controls", async () => {

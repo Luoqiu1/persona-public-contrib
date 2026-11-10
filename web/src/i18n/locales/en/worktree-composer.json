@@ -40,8 +40,6 @@
   "naming": "Naming",
   "manual": "Choose branch and path",
   "pending": "Creation is still in progress. You can close this dialog and check the same request later.",
-  "unknown": "The result is not confirmed. Check the original request before creating anything else here.",
-  "owner_changed": "This connection or manager has changed. Open the composer again from the workspace list.",
   "parent_mismatch": "Choose a parent on this computer and engine, or choose no parent.",
   "unsupported": "This engine does not support a selected option. Review the choices before creating.",
   "base_missing": "The selected base is no longer available. Choose a listed branch.",

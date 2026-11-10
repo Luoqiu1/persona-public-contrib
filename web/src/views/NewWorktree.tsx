@@ -155,7 +155,7 @@ function Composer({ session, request, onClose }: { session: WorktreeCreationSess
         <Button tone="primary" busy={sending} disabled={!validOwner || offline || (!info && !intent) || Boolean(read.error && !intent) || Boolean(parentMismatch || unsupportedParent)} onClick={submit}>
           {t(locked ? "worktree-composer.check_result" : "worktree-composer.create")}</Button>}
     </>}>
-    {!validOwner ? <Notice error>{t("worktree-composer.owner_changed")}</Notice> : intent?.created && actual ? <div className="flex flex-col gap-3 text-sm">
+    {!validOwner ? <Notice error>{t("worktree.owner_changed")}</Notice> : intent?.created && actual ? <div className="flex flex-col gap-3 text-sm">
       <p className="font-medium text-ink">{actual.label}</p>
       <p className="break-all font-mono text-ink-2">{intent.created.path}</p>
       <p className="break-all text-ink-2">{intent.created.branch}</p>
@@ -241,7 +241,7 @@ function Composer({ session, request, onClose }: { session: WorktreeCreationSess
         setRead({ key }); setError(""); session.updateRepository({ basic: true });
       }}>{t("worktree-composer.use_basic")}</Button>}
       {read.key === key && read.error && !locked && <Button onClick={() => { setRead({ key }); setReadVersion((v) => v + 1); }}>{t("worktree-composer.retry")}</Button>}
-      {locked && <Notice>{t(intent?.phase === "pending" || sending ? "worktree-composer.pending" : "worktree-composer.unknown")}</Notice>}
+      {locked && <Notice>{t(intent?.phase === "pending" || sending ? "worktree-composer.pending" : "worktree.unknown")}</Notice>}
       {(error || storageError || intent?.error) && <Notice error>{error || storageError || intent?.error}</Notice>}
       <button type="submit" hidden />
     </form>}

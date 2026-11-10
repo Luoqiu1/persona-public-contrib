@@ -1,0 +1,51 @@
+{
+  "revision": "02909fb6691af9028165dec8fe9a8a307160a1ad",
+  "fixture": "synthetic worktree migration",
+  "browser": {
+    "checks": 44,
+    "screenshots": 52,
+    "widths": [
+      1440,
+      390
+    ],
+    "height": 900,
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "text_sizes": [
+      "standard",
+      "large (maximum supported web setting)"
+    ],
+    "reduced_motion": true,
+    "phone_composer_chunk_delay_ms": 100
+  },
+  "web_full_suite": {
+    "passed": 7914,
+    "failed": 1,
+    "skipped": 1,
+    "inherited_failure": "src/views/assistant/Readiness.test.tsx:203",
+    "baseline_reproduced_at": "e5a790b2eac44223a2d57c9b77fa33e855eb76c8"
+  },
+  "final_focused_web_tests": 62,
+  "focused_go_packages": [
+    "internal/node",
+    "internal/hub",
+    "internal/orcart",
+    "internal/proto",
+    "internal/i18n"
+  ],
+  "checks_passed": [
+    "web typecheck",
+    "web lint",
+    "web build and startup budgets",
+    "documentation paths, Go paths, sections and wire checks",
+    "tracked and commit-range privacy scans",
+    "diff whitespace check"
+  ],
+  "limits": [
+    "Full Postgres-backed server suite not run",
+    "Physical iPhone, Safari and VoiceOver not verified",
+    "Current Orca removal API has no atomic instance/dirty-state compare condition"
+  ]
+}

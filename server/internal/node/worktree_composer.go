@@ -465,7 +465,12 @@ func (n *Node) worktreeSources(ctx context.Context, kind, id string, raw json.Ra
 	}
 	query := strings.TrimSpace(in.Query)
 	number, typ := strings.TrimPrefix(query, "#"), ""
-	if u, e := url.Parse(query); e == nil && u.Scheme != "" {
+	urlQuery := strings.ToLower(query)
+	if strings.HasPrefix(urlQuery, "https://") || strings.HasPrefix(urlQuery, "http://") {
+		u, e := url.Parse(query)
+		if e != nil {
+			return nil, composerError(ctx, "url_invalid")
+		}
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		if (u.Scheme != "https" && u.Scheme != "http") || len(parts) != 4 || (parts[2] != "pull" && parts[2] != "issues") {
 			return nil, composerError(ctx, "url_invalid")

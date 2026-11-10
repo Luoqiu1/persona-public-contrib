@@ -217,12 +217,56 @@ func TestWorktreeComposerProjectAndParentAreIndependent(t *testing.T) {
 	}
 }
 
+func TestWorktreeComposerSourceSearchPreservesColonQueries(t *testing.T) {
+	w := composerNode(t)
+	w.o.Handle("github.listWorkItems", func(p map[string]any) any {
+		return map[string]any{"items": []any{map[string]any{"type": "issue", "number": 42, "title": "Search result"}}}
+	})
+	for _, tc := range []struct{ query, want string }{
+		{"bug: login", "bug: login"},
+		{"feat: nested worktrees", "feat: nested worktrees"},
+		{"is:open login", "is:open login"},
+		{"docs: https://github.com/example/app/pull/42", "docs: https://github.com/example/app/pull/42"},
+		{"  fix: startup  ", "fix: startup"},
+	} {
+		t.Run(tc.query, func(t *testing.T) {
+			before := w.o.Count("github.listWorkItems")
+			res, err := request(t, w.n, "worktree.source", map[string]any{"workspace_id": w.src, "kind": "orca", "query": tc.query})
+			if err != nil || len(res["items"].([]any)) != 1 {
+				t.Fatalf("source search %q: %v %v", tc.query, res, err)
+			}
+			calls := w.o.Params("github.listWorkItems")
+			if len(calls) != before+1 || calls[before]["query"] != tc.want || calls[before]["repo"] != "id:repo1" {
+				t.Fatalf("source search changed query or project: %v", calls)
+			}
+		})
+	}
+	if w.o.Count("github.workItem") != 0 {
+		t.Fatal("keyword search must not resolve a numbered source")
+	}
+}
+
+func TestWorktreeComposerSourceRejectsMalformedURLs(t *testing.T) {
+	w := composerNode(t)
+	w.o.Handle("github.listWorkItems", func(p map[string]any) any {
+		return map[string]any{"items": []any{}}
+	})
+	for _, query := range []string{"https://%zz", "https://github.com/example/app/wiki/42"} {
+		if _, err := request(t, w.n, "worktree.source", map[string]any{"workspace_id": w.src, "kind": "orca", "query": query}); err == nil {
+			t.Fatalf("invalid source URL accepted: %q", query)
+		}
+	}
+	if w.o.Count("github.listWorkItems") != 0 || w.o.Count("github.workItem") != 0 {
+		t.Fatal("invalid source URL reached GitHub lookup")
+	}
+}
+
 func TestWorktreeComposerSourcesAreRealAndRepositoryBound(t *testing.T) {
 	w := composerNode(t)
 	w.o.Handle("github.workItem", func(p map[string]any) any {
 		return map[string]any{"type": "pr", "number": 42, "title": "Review", "url": "https://github.com/example/app/pull/42"}
 	})
-	for _, query := range []string{"42", "#42", "https://github.com/example/app/pull/42"} {
+	for _, query := range []string{"42", "#42", "https://github.com/example/app/pull/42", "HTTPS://github.com/example/app/pull/42"} {
 		res, err := request(t, w.n, "worktree.source", map[string]any{"workspace_id": w.src, "kind": "orca", "query": query})
 		if err != nil || len(res["items"].([]any)) != 1 {
 			t.Fatalf("source query %s: %v %v", query, res, err)

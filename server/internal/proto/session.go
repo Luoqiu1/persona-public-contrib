@@ -58,19 +58,22 @@ type ToolLoop struct {
 type Session struct {
 	ToolLoop *ToolLoop `json:"tool_loop,omitempty"`
 	// Manager is the manager it belongs to (docs/assistant/managers.md, "Ownership"); the hub stamps it on what it sends the apps.
-	Manager          string               `json:"manager,omitempty"`
-	MachineID        string               `json:"machine_id"`
-	SessionID        string               `json:"session_id"`
-	SourceKind       string               `json:"source_kind,omitempty"`
-	SourceThreadID   string               `json:"source_thread_id,omitempty"`
-	SourceInstanceID string               `json:"source_instance_id,omitempty"`
-	ParentThreadID   string               `json:"parent_thread_id,omitempty"`
-	ParentSessionID  string               `json:"parent_session_id,omitempty"` // Public ID scoped to the Codex home on this machine.
-	RootSessionID    string               `json:"root_session_id,omitempty"`
-	ReadOnlyReason   string               `json:"read_only_reason,omitempty"`
-	Capabilities     *SessionCapabilities `json:"capabilities,omitempty"`
-	IsSubagent       bool                 `json:"is_subagent,omitempty"`
-	Attached         bool                 `json:"attached,omitempty"`
+	Manager          string `json:"manager,omitempty"`
+	MachineID        string `json:"machine_id"`
+	SessionID        string `json:"session_id"`
+	SourceKind       string `json:"source_kind,omitempty"`
+	SourceThreadID   string `json:"source_thread_id,omitempty"`
+	SourceInstanceID string `json:"source_instance_id,omitempty"`
+	ParentThreadID   string `json:"parent_thread_id,omitempty"`
+	ParentSessionID  string `json:"parent_session_id,omitempty"` // Public ID scoped to the Codex home on this machine.
+	// ParentAgentID is the public session ID of a host-reported coordinator on this machine and manager.
+	// It does not classify the worker as a provider-native subagent.
+	ParentAgentID  string               `json:"parent_agent_id,omitempty"`
+	RootSessionID  string               `json:"root_session_id,omitempty"`
+	ReadOnlyReason string               `json:"read_only_reason,omitempty"`
+	Capabilities   *SessionCapabilities `json:"capabilities,omitempty"`
+	IsSubagent     bool                 `json:"is_subagent,omitempty"`
+	Attached       bool                 `json:"attached,omitempty"`
 	// CanFork: "Branch to new chat" works for it (a Claude Code conversation the node can copy, node/fork.go); older nodes
 	// never say so, and the clients hide it.
 	CanFork          bool `json:"can_fork,omitempty"`
@@ -78,9 +81,17 @@ type Session struct {
 	Assistant        bool `json:"assistant"` // runs in the assistant directory (the app's "Chat" tab)
 	// Archived: a retained conversation moved out of the normal list. Assistant
 	// conversations and Claude/Codex Agents are managed by their owning manager.
-	Archived bool   `json:"archived,omitempty"`
-	Title    string `json:"title"`
-	Cwd      string `json:"cwd"`
+	Archived bool `json:"archived,omitempty"`
+	// BackgroundWorking: State is working only because of background work (#2935): its turn ended while its
+	// background commands, subagents, Monitors or workflows still run. Clients say "Working (background)". Set by the hub.
+	BackgroundWorking bool `json:"background_working,omitempty"`
+	// BackgroundWaiting: BackgroundWorking, and all that background work only waits (#6045): its background commands
+	// sleep, loop on a check or watch something, using next to no CPU; no subagent or workflow runs. Clients show
+	// "Waiting in the background" apart from Working (lighter, not in the Working count); State stays working, so an
+	// older app shows Working. The node says whether its background commands wait; the manager keeps it only so.
+	BackgroundWaiting bool   `json:"background_waiting,omitempty"`
+	Title             string `json:"title"`
+	Cwd               string `json:"cwd"`
 	// WorkspaceCwd is the node-verified physical directory for Cwd. Consumers
 	// matching workspace bindings prefer it and fall back to Cwd on older nodes.
 	WorkspaceCwd string `json:"workspace_cwd,omitempty"`
@@ -190,16 +201,8 @@ type Session struct {
 	PaneIndex *int `json:"pane_index,omitempty"`
 	// State is the unified agent state the apps render (needs_you, working, unread, idle, offline, unknown),
 	// computed by the hub from the host status, pending interactions and whether the user has seen the result.
-	State string `json:"state"`
-	// BackgroundWorking: State is working only because of background work (#2935): its turn ended while its
-	// background commands, subagents, Monitors or workflows still run. Clients say "Working (background)". Set by the hub.
-	BackgroundWorking bool `json:"background_working,omitempty"`
-	// BackgroundWaiting: BackgroundWorking, and all that background work only waits (#6045): its background commands
-	// sleep, loop on a check or watch something, using next to no CPU; no subagent or workflow runs. Clients show
-	// "Waiting in the background" apart from Working (lighter, not in the Working count); State stays working, so an
-	// older app shows Working. The node says whether its background commands wait; the manager keeps it only so.
-	BackgroundWaiting bool      `json:"background_waiting,omitempty"`
-	SeenAt            time.Time `json:"seen_at,omitempty"`
+	State  string    `json:"state"`
+	SeenAt time.Time `json:"seen_at,omitempty"`
 	// StateSince is when the agent entered its current state, as the hub saw it (the hub restarting resets it):
 	// lists sort "Working" by it, since updated_at moves on every step.
 	StateSince time.Time `json:"state_since,omitempty"`

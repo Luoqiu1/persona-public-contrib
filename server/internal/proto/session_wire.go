@@ -21,7 +21,7 @@ import (
 // fields differ from them (a field added, renamed, retyped or retagged by a change that did not update this file),
 // appendSession leaves every session to the reflect encoder: the session is sent whole, only slower, until its line
 // here and this hash are brought up to date. TestSessionWireMatchesReflect fails meanwhile and prints the new hash.
-const sessionWireLayout = 0x25ff0486217fbbfe
+const sessionWireLayout = 0xa20d51488a95e0db
 
 var sessionWireCurrent = sessionLayout() == sessionWireLayout
 
@@ -75,6 +75,7 @@ func appendSession(b []byte, s *Session) ([]byte, bool) {
 	w.str(`"source_instance_id":`, s.SourceInstanceID, true)
 	w.str(`"parent_thread_id":`, s.ParentThreadID, true)
 	w.str(`"parent_session_id":`, s.ParentSessionID, true)
+	w.str(`"parent_agent_id":`, s.ParentAgentID, true)
 	w.str(`"root_session_id":`, s.RootSessionID, true)
 	w.str(`"read_only_reason":`, s.ReadOnlyReason, true)
 	if s.Capabilities != nil {
@@ -86,6 +87,8 @@ func appendSession(b []byte, s *Session) ([]byte, bool) {
 	w.boolean(`"started_by_persona":`, s.StartedByPersona, false)
 	w.boolean(`"assistant":`, s.Assistant, false)
 	w.boolean(`"archived":`, s.Archived, true)
+	w.boolean(`"background_working":`, s.BackgroundWorking, true)
+	w.boolean(`"background_waiting":`, s.BackgroundWaiting, true)
 	w.str(`"title":`, s.Title, false)
 	w.str(`"cwd":`, s.Cwd, false)
 	w.str(`"workspace_cwd":`, s.WorkspaceCwd, true)
@@ -148,8 +151,6 @@ func appendSession(b []byte, s *Session) ([]byte, bool) {
 		w.integer(`"pane_index":`, int64(*s.PaneIndex), false)
 	}
 	w.str(`"state":`, s.State, false)
-	w.boolean(`"background_working":`, s.BackgroundWorking, true)
-	w.boolean(`"background_waiting":`, s.BackgroundWaiting, true)
 	w.time(`"seen_at":`, s.SeenAt) // time.Time is a struct, never empty, so omitempty keeps it
 	w.time(`"state_since":`, s.StateSince)
 	w.strs(`"queued":`, s.Queued)

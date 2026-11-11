@@ -812,3 +812,11 @@ func TestSessionsOfOneManagerSeveralComputersExtension(t *testing.T) {
 		t.Errorf("B's counts through its extension: %d %s %v", code, out, err)
 	}
 }
+
+func TestRuntimeSummaryRetainsHostParent(t *testing.T) {
+	s := proto.Session{SessionID: "worker", ParentAgentID: "coordinator", Agent: "codex"}
+	row := runtimeSummary(s)
+	if row.ParentAgentID != "coordinator" || row.IsCodexSubagent() {
+		t.Fatalf("host relation changed by summary: %+v", row)
+	}
+}

@@ -270,6 +270,7 @@ func (n *Node) sessionListIn(ctx context.Context, refreshAgents bool, pass *code
 	n.listRows.Store(int32(max(peak, len(out))))
 	// Terminal-owned Codex parents were already seen before history was added: over the whole list, before any row goes.
 	resolveCodexHierarchy(out)
+	resolveHostHierarchy(out, agents)
 	// The rows kept move down over the dropped ones, in order.
 	j = 0
 	for i := range out {

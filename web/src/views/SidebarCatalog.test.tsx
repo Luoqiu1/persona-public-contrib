@@ -72,7 +72,7 @@ describe("By repo catalog integration", () => {
     expect([...previews.keys()]).toEqual([]);
   });
 
-  it("loads independent of the board, exposes empty ancestry and separates selection from disclosure", async () => {
+  it("loads independent of the board, exposes empty ancestry and lets titles and arrows toggle the same disclosure", async () => {
     const onSelectWorkspace = vi.fn();
     await render({ onSelectWorkspace });
     expect(inventory.every((w) => title(w.title))).toBe(true);
@@ -83,11 +83,17 @@ describe("By repo catalog integration", () => {
     click(title("root"));
     expect(title("root").getAttribute("aria-pressed")).toBe("true");
     expect(location.pathname).toBe("/");
-    expect(disclosure("root").getAttribute("aria-expanded")).toBe("true");
+    expect(disclosure("root").getAttribute("aria-expanded")).toBe("false");
     expect(onSelectWorkspace).toHaveBeenCalledWith(expect.objectContaining({ machineId: machine.id, host: "orca", workspaceId: "root", cwd: "/code/root" }));
     click(disclosure("root"));
-    expect(disclosure("root").getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure("root").getAttribute("aria-expanded")).toBe("true");
     expect(onSelectWorkspace).toHaveBeenCalledTimes(1);
+    for (const name of ["root", "middle", "leaf", "empty"]) {
+      click(title(name));
+      expect(disclosure(name).getAttribute("aria-expanded")).toBe("false");
+      click(title(name));
+      expect(disclosure(name).getAttribute("aria-expanded")).toBe("true");
+    }
   });
 
   it("reveals an externally selected parent without opening it and rejects an old connection's selection", async () => {
@@ -120,18 +126,19 @@ describe("By repo catalog integration", () => {
     expect(title("obsolete")).toBeUndefined();
   });
 
-  it("opens only a direct pinned Agent and renders pinned rows once", async () => {
+  it("keeps workspace titles as disclosures and opens the exact Agent from its own row", async () => {
     sessions.push(agent("Pinned Agent", "root", { state: "needs_you", status: "needs_you" }));
     pinned = [`${machine.id}/Pinned Agent`];
     await render();
-    const rootTitle = title("root");
-    expect(rootTitle.tagName).toBe("A");
-    expect(rootTitle.getAttribute("href")).toContain("Pinned%20Agent");
     expect([...host.querySelectorAll("a")].filter((el) => el.textContent?.includes("Pinned Agent"))).toHaveLength(1);
-    expect(title("middle").tagName).toBe("BUTTON");
-    click(title("middle")); expect(location.pathname).toBe("/");
-    click(rootTitle); expect(decodeURIComponent(location.pathname)).toContain("Pinned Agent");
+    click(title("root"));
+    expect(location.pathname).toBe("/");
+    expect(disclosure("root").getAttribute("aria-expanded")).toBe("false");
+    click(title("root"));
     expect(disclosure("root").getAttribute("aria-expanded")).toBe("true");
+    const pinnedRow = [...host.querySelectorAll("a")].find((el) => el.textContent?.includes("Pinned Agent"))!;
+    click(pinnedRow);
+    expect(decodeURIComponent(location.pathname)).toContain("Pinned Agent");
   });
 
   it("passes the same exact target to pointer and keyboard-accessible menu entry points", async () => {
@@ -146,7 +153,7 @@ describe("By repo catalog integration", () => {
 
   it("refreshes a renamed workspace without changing identity, selection or the remembered disclosure", async () => {
     await render();
-    click(title("empty")); click(disclosure("empty"));
+    click(title("empty"));
     const key = title("empty").closest("[data-workspace-key]")!.getAttribute("data-workspace-key");
     inventory = inventory.map((w) => w.source_id === "empty" ? { ...w, title: "Renamed" } : w);
     await act(() => refreshWorkspaceCatalog()); await flush();

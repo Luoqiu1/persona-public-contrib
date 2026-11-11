@@ -71,15 +71,24 @@ try {
       const tree = page.getByRole("main");
       const empty = tree.getByRole("button", { name: "Empty parent", exact: true });
       await empty.waitFor();
-      await tree.getByRole("link", { name: "Catalog leaf", exact: true }).waitFor();
+      await tree.getByRole("button", { name: "Catalog leaf", exact: true }).waitFor();
       await empty.click();
       assert.equal(await empty.getAttribute("aria-pressed"), "true", "An empty workspace is independently selectable");
       await screenshot("catalog");
       const expand = tree.getByRole("button", { name: "Expand or collapse Empty parent", exact: true });
-      await expand.click();
       assert.equal(await expand.getAttribute("aria-expanded"), "false");
       await expand.click();
-      await tree.getByRole("link", { name: "Catalog leaf", exact: true }).click();
+      const leaf = tree.getByRole("button", { name: "Catalog leaf", exact: true });
+      await leaf.click();
+      assert.equal(await leaf.getAttribute("aria-expanded"), "false", "A populated child title folds without navigating");
+      assert.equal(new URL(page.url()).pathname, "/agents");
+      await leaf.press("Enter");
+      assert.equal(await leaf.getAttribute("aria-expanded"), "true", "Enter opens the same disclosure");
+      await leaf.press("Space");
+      assert.equal(await leaf.getAttribute("aria-expanded"), "false", "Space folds the same disclosure");
+      await leaf.click();
+      assert.equal(await leaf.getAttribute("aria-expanded"), "true");
+      await tree.getByRole("link", { name: /Catalog-only ancestry check/ }).click();
       await page.getByRole("heading", { name: "Catalog-only ancestry check", exact: true }).waitFor();
       results.push({ tag, check: "catalog empty ancestor / direct Agent navigation", pass: true });
 

@@ -1,0 +1,115 @@
+{
+  "fixture": "synthetic worktree migration",
+  "results": [
+    {
+      "tag": "1440-light",
+      "check": "catalog empty ancestor / direct Agent navigation",
+      "pass": true
+    },
+    {
+      "tag": "1440-light",
+      "check": "existing workspace exact host / identity / path launch",
+      "pass": true
+    },
+    {
+      "tag": "1440-light",
+      "check": "independent project/source/parent/base + branch/note/sparse creation",
+      "pass": true
+    },
+    {
+      "tag": "1440-light",
+      "check": "acknowledged workspace rename and catalog refresh",
+      "pass": true
+    },
+    {
+      "tag": "1440-light",
+      "check": "dirty preview/explicit confirmation + default branch retention",
+      "pass": true
+    },
+    {
+      "tag": "1440-light",
+      "check": "lost create acknowledgement / close/reopen / same receipt recovery without duplicate",
+      "pass": true
+    },
+    {
+      "tag": "1440-light",
+      "check": "unknown deletion retains target and only performs read-only reconciliation",
+      "pass": true
+    },
+    {
+      "tag": "1440-dark",
+      "check": "catalog empty ancestor / direct Agent navigation",
+      "pass": true
+    },
+    {
+      "tag": "1440-dark",
+      "check": "existing workspace exact host / identity / path launch",
+      "pass": true
+    },
+    {
+      "tag": "1440-dark",
+      "check": "independent project/source/parent/base + branch/note/sparse creation",
+      "pass": true
+    },
+    {
+      "tag": "1440-dark",
+      "check": "acknowledged workspace rename and catalog refresh",
+      "pass": true
+    },
+    {
+      "tag": "1440-dark",
+      "check": "dirty preview/explicit confirmation + default branch retention",
+      "pass": true
+    },
+    {
+      "tag": "390-light",
+      "check": "catalog empty ancestor / direct Agent navigation",
+      "pass": true
+    },
+    {
+      "tag": "390-light",
+      "check": "existing workspace exact host / identity / path launch",
+      "pass": true
+    },
+    {
+      "tag": "390-light",
+      "check": "independent project/source/parent/base + branch/note/sparse creation",
+      "pass": true
+    },
+    {
+      "tag": "390-light",
+      "check": "acknowledged workspace rename and catalog refresh",
+      "pass": true
+    },
+    {
+      "tag": "390-light",
+      "check": "dirty preview/explicit confirmation + default branch retention",
+      "pass": true
+    },
+    {
+      "tag": "390-dark",
+      "check": "catalog empty ancestor / direct Agent navigation",
+      "pass": true
+    },
+    {
+      "tag": "390-dark",
+      "check": "existing workspace exact host / identity / path launch",
+      "pass": true
+    },
+    {
+      "tag": "390-dark",
+      "check": "independent project/source/parent/base + branch/note/sparse creation",
+      "pass": true
+    },
+    {
+      "tag": "390-dark",
+      "check": "acknowledged workspace rename and catalog refresh",
+      "pass": true
+    },
+    {
+      "tag": "390-dark",
+      "check": "dirty preview/explicit confirmation + default branch retention",
+      "pass": true
+    }
+  ]
+}

@@ -53,8 +53,8 @@ type ToolLoop struct {
 }
 
 // Session is one row of a computer's list. Rows are copied one at a time all over the hub, the manager and the node,
-// so the size matters: its bools sit next to other bools, several to an 8-byte word, keeping its payload within
-// 1,536 bytes (TestSessionFitsItsSizeClass). A bool between two wider fields takes a word to itself.
+// so the size matters: its bools sit next to other bools, several to an 8-byte word, which keeps a row inside Go's
+// 1,536-byte size class (TestSessionFitsItsSizeClass). A bool between two wider fields takes a word to itself.
 type Session struct {
 	ToolLoop *ToolLoop `json:"tool_loop,omitempty"`
 	// Manager is the manager it belongs to (docs/assistant/managers.md, "Ownership"); the hub stamps it on what it sends the apps.
@@ -65,7 +65,7 @@ type Session struct {
 	SourceThreadID   string `json:"source_thread_id,omitempty"`
 	SourceInstanceID string `json:"source_instance_id,omitempty"`
 	ParentThreadID   string `json:"parent_thread_id,omitempty"`
-	ParentSessionID  string `json:"parent_session_id,omitempty"` // Public ID scoped to the Codex home on this machine.
+	ParentSessionID  string `json:"parent_session_id,omitempty"` // The session that started it: a Codex parent's public ID (scoped to the Codex home on this machine), or a runtime's own session (#4494, #4495).
 	// ParentAgentID is the public session ID of a host-reported coordinator on this machine and manager.
 	// It does not classify the worker as a provider-native subagent.
 	ParentAgentID  *string              `json:"parent_agent_id,omitempty"`
@@ -81,16 +81,9 @@ type Session struct {
 	Assistant        bool `json:"assistant"` // runs in the assistant directory (the app's "Chat" tab)
 	// Archived: a retained conversation moved out of the normal list. Assistant
 	// conversations and Claude/Codex Agents are managed by their owning manager.
-	Archived bool `json:"archived,omitempty"`
-	// BypassAvailable: this Claude Code can be switched to bypassPermissions (Allow All) while it runs, since it was
-	// started with --dangerously-skip-permissions, --allow-dangerously-skip-permissions or --permission-mode
-	// bypassPermissions, which put that mode in its shift+tab cycle (#1379). The node reads it off the claude process its
-	// hooks run under; false while unknown (no hook yet, a node too old to say).
-	BypassAvailable bool `json:"bypass_available,omitempty"`
-	// UltracodePending is a requested change to the session-only workflow switch.
-	UltracodePending bool   `json:"ultracode_pending,omitempty"`
-	Title            string `json:"title"`
-	Cwd              string `json:"cwd"`
+	Archived bool   `json:"archived,omitempty"`
+	Title    string `json:"title"`
+	Cwd      string `json:"cwd"`
 	// WorkspaceCwd is the node-verified physical directory for Cwd. Consumers
 	// matching workspace bindings prefer it and fall back to Cwd on older nodes.
 	WorkspaceCwd string `json:"workspace_cwd,omitempty"`
@@ -98,12 +91,12 @@ type Session struct {
 	// whose worktrees live under Paseo's own folder): "By repo" groups by it; without it the clients infer the repository
 	// from Cwd's path.
 	RepoRoot string `json:"repo_root,omitempty"`
-	// Inventory is optional, credential-free metadata for the bounded session list.
-	Inventory *SessionInventory `json:"inventory,omitempty"`
 	// Worktree is the top of the git working tree Cwd is in (RepoRoot itself for the main checkout, a linked worktree's
 	// own folder otherwise) and Branch the branch checked out there ("" when detached or unknown). The node reads both,
 	// and RepoRoot when no host names it, off the filesystem (node/gitplace.go): the apps list machine → project
-	// (RepoRoot) → worktree (Worktree, labelled Branch) → sessions, as Orca does (#1805).
+	// (RepoRoot) → worktree (Worktree, labelled Branch) → sessions, as Orca does (#1805). RepoRoot and Worktree are
+	// physical directories (symbolic links resolved, #4492), however Cwd is written and however a host wrote the
+	// RepoRoot it named: the apps compare them as strings.
 	Worktree    string `json:"worktree,omitempty"`
 	Branch      string `json:"branch,omitempty"`
 	Status      string `json:"status"`
@@ -133,12 +126,18 @@ type Session struct {
 	// drives through its app-server has an Effort too (Codex's levels, see Efforts) but never a PermissionMode.
 	PermissionMode string `json:"permission_mode,omitempty"`
 	Effort         string `json:"effort,omitempty"`
+	// BypassAvailable: this Claude Code can be switched to bypassPermissions (Allow All) while it runs, since it was
+	// started with --dangerously-skip-permissions, --allow-dangerously-skip-permissions or --permission-mode
+	// bypassPermissions, which put that mode in its shift+tab cycle (#1379). The node reads it off the claude process its
+	// hooks run under; false while unknown (no hook yet, a node too old to say).
+	BypassAvailable bool `json:"bypass_available,omitempty"`
 	// Ultracode is Claude Code's independent session-only workflow switch: nil means unknown.
-	// LostAt asks the client to offer reopening after a resumed process reset an enabled switch.
-	// Reopening or dismissing the notice clears LostAt.
-	Ultracode       *bool      `json:"ultracode,omitempty"`
-	UltracodeNote   string     `json:"ultracode_note,omitempty"`
-	UltracodeLostAt *time.Time `json:"ultracode_lost_at,omitempty"`
+	// Pending means a requested change waits for an idle input box; LostAt asks the client to offer reopening
+	// after a resumed process reset an enabled switch. Reopening or dismissing the notice clears LostAt.
+	UltracodePending bool       `json:"ultracode_pending,omitempty"`
+	Ultracode        *bool      `json:"ultracode,omitempty"`
+	UltracodeNote    string     `json:"ultracode_note,omitempty"`
+	UltracodeLostAt  *time.Time `json:"ultracode_lost_at,omitempty"`
 	// ContextTokens is what the model saw in the agent's latest reply (Claude: input + cache read + cache creation;
 	// Codex: the last token_count's input) and ContextWindow the model's window, both read off the transcript tail the
 	// node already reads (#2430). ContextTokens is omitted while unknown (no reply yet); ContextWindow too, when the
@@ -206,10 +205,9 @@ type Session struct {
 	// older app shows Working. The node says whether its background commands wait; the manager keeps it only so.
 	BackgroundWaiting bool `json:"background_waiting,omitempty"`
 	// The fields from BackgroundWorking to QueuedRelayed sit together, not beside the ones they go with: with Go's
-	// 8-byte allocation header a Session above 1,528 bytes uses the next size class when individually allocated.
-	// Inventory and ParentAgentID together need a 1,536-byte payload: the manager's existence, ancestry and workspace
-	// readers project only the values they need instead of allocating full rows. Their allocation bounds stay unchanged
-	// (internal/assistant's TestSessionReadersCopyNoList, #2528). Mind the padding when adding a field.
+	// 8-byte allocation header a Session must stay at most 1,528 bytes to keep its 1,536-byte size class, and every
+	// row the manager copies out of a node's list pays the next class's 256 bytes otherwise (internal/assistant's
+	// TestSessionReadersCopyNoList, #2528). Mind the padding when adding a field.
 	// WokeByTask: the latest turn was started by a background task reporting back, not by the user; finishing
 	// it sends no push (the user did not ask for anything).
 	WokeByTask bool `json:"woke_by_task,omitempty"`
@@ -251,8 +249,7 @@ type Session struct {
 	// it started, which the apps open through the hub.
 	Ports     []Port    `json:"ports,omitempty"`
 	UpdatedAt time.Time `json:"updated_at"`
-
-	LastText string `json:"last_text,omitempty"`
+	LastText  string    `json:"last_text,omitempty"`
 	// Asks is what the agent's last reply asks the user, when its closing words put a question or a decision to
 	// them (transcript.AskOf, #5096): read by the node off the whole reply, since LastText is only its beginning.
 	Asks string `json:"asks,omitempty"`
@@ -345,15 +342,6 @@ type Session struct {
 	// paseo for the Paseo runtime's; empty for transcripts with no live host and for other runtimes. The apps label a
 	// row with it when the machine enables more than one host.
 	Host string `json:"host,omitempty"`
-}
-
-// SessionInventory is immutable after collection. ProjectRepo is a SHA-256
-// digest, never a remote URL or a local path. The hub scopes local digests to
-// their machine. CreatedAt is the recorded start, when the source knows it.
-type SessionInventory struct {
-	ProjectKind string     `json:"project_kind,omitempty"` // remote, local, non_git, or empty (unknown)
-	ProjectRepo string     `json:"project_repo,omitempty"`
-	CreatedAt   *time.Time `json:"created_at,omitempty"`
 }
 
 // Session.TurnErrorKind values.

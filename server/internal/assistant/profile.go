@@ -492,19 +492,28 @@ func (s *Service) view(ctx context.Context, withArchived bool, space ...string) 
 	if d, ok := s.device(ctx, v.MachineID); ok {
 		out.Cwd = s.spaceCwd(d, sp)
 		var list []proto.Session
+		owned := false
 		if s.fleetOn() {
 			// Select the headless conversations before copying, decorating or serializing the inventory: coding
 			// sessions can outnumber them by thousands.
 			if m, found := s.fleetMachine(d.ID); found {
 				list = s.decorateInventory(m.ID, s.assistantSessions(m), false)
+				owned = true
 			}
 		} else {
 			list, _ = s.sessions(ctx, d.ID)
+		}
+		// The fleet subset is a private copy already: filter it in place instead of copying its rows again.
+		if owned && len(list) > 0 {
+			out.Conversations = list[:0]
 		}
 		for _, c := range list {
 			if c.Assistant && spaceOf(c) == sp && (withArchived || !c.Archived) {
 				out.Conversations = append(out.Conversations, c)
 			}
+		}
+		if owned {
+			clear(list[len(out.Conversations):])
 		}
 	}
 	if sp == "" && v.MainMachineID != "" && v.MainMachineID != v.MachineID {

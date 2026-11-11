@@ -53,8 +53,8 @@ type ToolLoop struct {
 }
 
 // Session is one row of a computer's list. Rows are copied one at a time all over the hub, the manager and the node,
-// so the size matters: its bools sit next to other bools, several to an 8-byte word, which keeps a row inside Go's
-// 1,536-byte size class (TestSessionFitsItsSizeClass). A bool between two wider fields takes a word to itself.
+// so the size matters: its bools sit next to other bools, several to an 8-byte word, keeping its payload within
+// 1,536 bytes (TestSessionFitsItsSizeClass). A bool between two wider fields takes a word to itself.
 type Session struct {
 	ToolLoop *ToolLoop `json:"tool_loop,omitempty"`
 	// Manager is the manager it belongs to (docs/assistant/managers.md, "Ownership"); the hub stamps it on what it sends the apps.
@@ -98,6 +98,8 @@ type Session struct {
 	// whose worktrees live under Paseo's own folder): "By repo" groups by it; without it the clients infer the repository
 	// from Cwd's path.
 	RepoRoot string `json:"repo_root,omitempty"`
+	// Inventory is optional, credential-free metadata for the bounded session list.
+	Inventory *SessionInventory `json:"inventory,omitempty"`
 	// Worktree is the top of the git working tree Cwd is in (RepoRoot itself for the main checkout, a linked worktree's
 	// own folder otherwise) and Branch the branch checked out there ("" when detached or unknown). The node reads both,
 	// and RepoRoot when no host names it, off the filesystem (node/gitplace.go): the apps list machine → project
@@ -204,9 +206,10 @@ type Session struct {
 	// older app shows Working. The node says whether its background commands wait; the manager keeps it only so.
 	BackgroundWaiting bool `json:"background_waiting,omitempty"`
 	// The fields from BackgroundWorking to QueuedRelayed sit together, not beside the ones they go with: with Go's
-	// 8-byte allocation header a Session must stay at most 1,528 bytes to keep its 1,536-byte size class, and every
-	// row the manager copies out of a node's list pays the next class's 256 bytes otherwise (internal/assistant's
-	// TestSessionReadersCopyNoList, #2528). Mind the padding when adding a field.
+	// 8-byte allocation header a Session above 1,528 bytes uses the next size class when individually allocated.
+	// Inventory and ParentAgentID together need a 1,536-byte payload: the manager's existence, ancestry and workspace
+	// readers project only the values they need instead of allocating full rows. Their allocation bounds stay unchanged
+	// (internal/assistant's TestSessionReadersCopyNoList, #2528). Mind the padding when adding a field.
 	// WokeByTask: the latest turn was started by a background task reporting back, not by the user; finishing
 	// it sends no push (the user did not ask for anything).
 	WokeByTask bool `json:"woke_by_task,omitempty"`
@@ -248,7 +251,8 @@ type Session struct {
 	// it started, which the apps open through the hub.
 	Ports     []Port    `json:"ports,omitempty"`
 	UpdatedAt time.Time `json:"updated_at"`
-	LastText  string    `json:"last_text,omitempty"`
+
+	LastText string `json:"last_text,omitempty"`
 	// Asks is what the agent's last reply asks the user, when its closing words put a question or a decision to
 	// them (transcript.AskOf, #5096): read by the node off the whole reply, since LastText is only its beginning.
 	Asks string `json:"asks,omitempty"`
@@ -341,6 +345,15 @@ type Session struct {
 	// paseo for the Paseo runtime's; empty for transcripts with no live host and for other runtimes. The apps label a
 	// row with it when the machine enables more than one host.
 	Host string `json:"host,omitempty"`
+}
+
+// SessionInventory is immutable after collection. ProjectRepo is a SHA-256
+// digest, never a remote URL or a local path. The hub scopes local digests to
+// their machine. CreatedAt is the recorded start, when the source knows it.
+type SessionInventory struct {
+	ProjectKind string     `json:"project_kind,omitempty"` // remote, local, non_git, or empty (unknown)
+	ProjectRepo string     `json:"project_repo,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
 }
 
 // Session.TurnErrorKind values.

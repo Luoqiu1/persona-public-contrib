@@ -213,9 +213,8 @@ func (s *Service) resolveBoardCard(ctx context.Context, op *workspaceboard.Mutat
 	defer cancel()
 	var selected *proto.Workspace
 	if op.WorkspaceID != "" {
-		sessions, _ := s.boardSessions(m.ID)
-		for _, session := range sessions {
-			candidate := workspaceForSession(m.ID, session)
+		workspaces, _ := s.sessionWorkspaces(m.ID)
+		for _, candidate := range workspaces {
 			if candidate.Cwd != "" && candidate.ID == op.WorkspaceID {
 				selected = &candidate
 				break
@@ -302,20 +301,22 @@ func sessionBoardDirectory(s proto.Session) string {
 	return workspaceDirectory(s.Cwd)
 }
 
-// boardSessions are, of a machine's sessions, the first to name each directory (WorkspaceCwd, else Cwd), in list order,
-// and how many its node listed. The board reads a directory's first session only: a later one in the same directory
-// is either taken as that first one was or skipped, since sessionBoardDirectory canonicalizes a path to one it leaves
-// as it is. So a machine listing thousands of sessions in a few directories copies a few.
-func (s *Service) boardSessions(machine string) ([]proto.Session, int) {
+// sessionWorkspaces projects the first session naming each directory (WorkspaceCwd, else Cwd), in list order,
+// and reports how many sessions the node listed. Later rows in that directory are skipped as before; the board
+// retains workspace metadata without copying complete session rows.
+func (s *Service) sessionWorkspaces(machine string) ([]proto.Workspace, int) {
 	named := map[string]bool{}
-	return s.nodeSessionsWhere(machine, func(sess *proto.Session) bool {
+	var workspaces []proto.Workspace
+	_, listed := s.nodeSessionsWhere(machine, func(sess *proto.Session) bool {
 		dir := cmp.Or(sess.WorkspaceCwd, sess.Cwd)
 		if dir == "" || named[dir] {
 			return false // none (sessionBoardDirectory ""), or one already read
 		}
 		named[dir] = true
-		return true
+		workspaces = append(workspaces, workspaceForSession(machine, *sess))
+		return false
 	})
+	return workspaces, listed
 }
 
 func workspaceForSession(machine string, s proto.Session) proto.Workspace {
@@ -469,7 +470,7 @@ func (s *Service) getWorkspaces(w http.ResponseWriter, r *http.Request) {
 		if result.err != nil {
 			errs = append(errs, workspaceDiscoveryError{m.ID, i18n.Localize(result.err, l)})
 		}
-		sessions, listed := s.boardSessions(m.ID)
+		workspaces, listed := s.sessionWorkspaces(m.ID)
 		containsDirectory := func(cwd string) bool {
 			for _, item := range entries {
 				if workspaceDirectory(item.Cwd) == workspaceDirectory(cwd) {
@@ -478,11 +479,10 @@ func (s *Service) getWorkspaces(w http.ResponseWriter, r *http.Request) {
 			}
 			return false
 		}
-		for _, session := range sessions {
-			if sessionBoardDirectory(session) == "" || containsDirectory(sessionBoardDirectory(session)) {
+		for _, item := range workspaces {
+			if item.Cwd == "" || containsDirectory(item.Cwd) {
 				continue
 			}
-			item := workspaceForSession(m.ID, session)
 			item.Online, item.Available = online, online
 			if online {
 				item.LastSeen = result.at.Format(time.RFC3339Nano)

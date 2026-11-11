@@ -10,7 +10,7 @@ import (
 	"github.com/nwverse/persona/server/internal/proto"
 )
 
-// The readers of a machine's sessions that keep a few rows (nodeSessionsWhere, boardSessions) answer as they did when
+// The readers of a machine's sessions that keep a few rows (nodeSessionsWhere, sessionWorkspaces) answer as they did when
 // each copied the whole list: the duplicate ids, parent chains, directories and aliases below are where a filter that
 // kept the wrong rows would differ.
 func TestSessionReadersAnswerAsBefore(t *testing.T) {
@@ -102,6 +102,9 @@ func busyBoard(t *testing.T) *Service {
 // twice (25.8 MB; it still needs one, as its own to decorate). publishList, telling the same list again, also encoded
 // it into new bytes (28.4 MB in all); now it allocates the decorated list alone. Each bound is the measured bytes per
 // call + 3%.
+// Inventory and the host coordinator link together bring a Session payload to 1,536 bytes; with its allocation
+// header an individual row uses the next size class. Existence, ancestry and workspace projections keep the same
+// bounds without narrowing the wire fields or copying those larger rows for metadata-only reads.
 func TestSessionReadersCopyNoList(t *testing.T) {
 	if !isolated(t) {
 		return

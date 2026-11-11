@@ -23,25 +23,31 @@ func (s *Service) completionChildrenRunning(machine string, root proto.Session) 
 	if completionChild(root) {
 		return false
 	}
-	// Only the running children are copied out of the machine's list; of each row only its parent is kept, the last
-	// row of an id counting (a parent no row names is "", as is one whose row has none).
+	rootID := root.SessionID
+	// Keep only ancestry from running children, not their complete session rows. The last row of an id supplies
+	// its parent (a parent no row names is "", as is one whose row has none).
+	type ancestry struct{ id, parent, root string }
+	var running []ancestry
 	parentOf := map[string]string{}
-	running, _ := s.nodeSessionsWhere(machine, func(sess *proto.Session) bool {
+	s.nodeSessionsWhere(machine, func(sess *proto.Session) bool {
 		if sess.ParentSessionID != "" {
 			parentOf[sess.SessionID] = sess.ParentSessionID
 		} else {
 			delete(parentOf, sess.SessionID)
 		}
-		return sess.SessionID != root.SessionID && completionChild(*sess) &&
-			(sess.Status == proto.StatusWorking || sess.Status == proto.StatusBlocked || backgroundRunning(*sess))
+		if sess.SessionID != rootID && completionChild(*sess) &&
+			(sess.Status == proto.StatusWorking || sess.Status == proto.StatusBlocked || backgroundRunning(*sess)) {
+			running = append(running, ancestry{sess.SessionID, sess.ParentSessionID, sess.RootSessionID})
+		}
+		return false
 	})
 	for _, child := range running {
-		if child.RootSessionID == root.SessionID {
+		if child.root == rootID {
 			return true
 		}
-		seen := map[string]bool{child.SessionID: true}
-		for parent := child.ParentSessionID; parent != "" && !seen[parent]; parent = parentOf[parent] {
-			if parent == root.SessionID {
+		seen := map[string]bool{child.id: true}
+		for parent := child.parent; parent != "" && !seen[parent]; parent = parentOf[parent] {
+			if parent == rootID {
 				return true
 			}
 			seen[parent] = true

@@ -732,6 +732,12 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
           <span className="min-w-0 flex-1 text-[11px] font-semibold text-ink-3">Agents</span>
         )}
         {folded && <SessionTally sessions={live} folded />}
+        <button type="button" title={t("sidebar.open_all")} aria-label={t("sidebar.open_all")} onClick={() => { setAgentsFolded(false); hover(null); }} className={SESSION_LIST_STYLE.foldButton}>
+          <Icon name="chevron" size={12} stroke={2} />
+        </button>
+        <button type="button" title={t("sidebar.fold_all")} aria-label={t("sidebar.fold_all")} onClick={() => { setAgentsFolded(true); hover(null); }} className={SESSION_LIST_STYLE.foldButton}>
+          <Icon name="up" size={12} stroke={2} />
+        </button>
         <button type="button" title={listLabel} aria-label={listLabel} aria-haspopup="menu" aria-expanded={Boolean(listMenu.anchor)} onClick={listMenu.open} className={cx("touch-hit relative z-10 flex size-5 shrink-0 items-center justify-center rounded-[5px] hover:bg-hover hover:text-ink-2", byUpdate ? "text-accent" : "text-ink-3", listMenu.anchor && "bg-hover")}>
           <Icon name={byUpdate ? "clock" : "more"} size={12} stroke={2} />
         </button>

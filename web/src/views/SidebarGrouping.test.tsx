@@ -148,6 +148,28 @@ describe("按待办 before the todos have loaded", () => {
   });
 });
 
+describe("group controls in every Agents view", () => {
+  it.each(["todo", "machine", "repo", "space", "state"])("opens and folds all levels in %s without folding the block", async (mode) => {
+    localStorage.setItem("persona.agentGrouping", mode);
+    vi.stubGlobal("fetch", hub(() => json({ todos: [todo] })));
+    await refresh();
+    await render();
+    const action = (label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+    const disclosures = () => [...agentsBlock().querySelectorAll<HTMLButtonElement>("[data-sidebar-group] button[aria-expanded]")];
+    expect(disclosures().length).toBeGreaterThan(0);
+    act(() => action("全部折叠").click());
+    expect(disclosures().every((b) => b.getAttribute("aria-expanded") === "false")).toBe(true);
+    expect(grouping().closest("[inert]")).toBeNull();
+    act(() => action("全部展开").click());
+    expect(disclosures().every((b) => b.getAttribute("aria-expanded") === "true")).toBe(true);
+    const first = disclosures()[0]!;
+    act(() => first.click());
+    expect(first.getAttribute("aria-expanded")).toBe("false");
+    act(() => action("全部展开").click());
+    expect(first.getAttribute("aria-expanded")).toBe("true");
+  });
+});
+
 describe("a hub without todos (GET /todos 404)", () => {
   it("hides 待办 and shows 按机器 for a browser that never chose", async () => {
     vi.stubGlobal("fetch", hub(() => json({ error: "not found" }, 404)));

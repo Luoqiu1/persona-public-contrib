@@ -86,7 +86,11 @@ function reveal(el: HTMLElement): boolean {
       b = p.getBoundingClientRect();
     // a row under the pinned Persona row (#5581) is not in view; that row itself always is
     const pinned = p.querySelector<HTMLElement>(":scope > [data-sidebar-sticky]");
-    const top = pinned && !pinned.contains(el) ? pinned.getBoundingClientRect().bottom : b.top;
+    let top = pinned && !pinned.contains(el) ? pinned.getBoundingClientRect().bottom : b.top;
+    for (let group = el.closest("[data-sidebar-group]"); group; group = group.parentElement?.closest("[data-sidebar-group]") ?? null) {
+      const heading = group.querySelector<HTMLElement>(":scope > [data-sidebar-group-heading]");
+      if (heading && !heading.contains(el)) top = Math.max(top, heading.getBoundingClientRect().bottom);
+    }
     if (r.top >= top && r.bottom <= b.bottom) return false;
     p.scrollTop += r.top + r.height / 2 - (b.top + b.height / 2);
     return true;
@@ -106,6 +110,20 @@ function useScrolled(ref: React.RefObject<HTMLElement | null>): boolean {
     return () => n.removeEventListener("scroll", read);
   }, [ref]);
   return scrolled;
+}
+
+/** Keep group headings below Persona at every text size, without doing layout work on scroll. */
+function useStickyTop(ref: React.RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const nav = ref.current;
+    const pinned = nav?.querySelector<HTMLElement>(":scope > [data-sidebar-sticky]");
+    if (!nav || !pinned) return;
+    const measure = () => nav.style.setProperty("--sidebar-sticky-top", `${pinned.getBoundingClientRect().height}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(pinned);
+    return () => { observer.disconnect(); nav.style.removeProperty("--sidebar-sticky-top"); };
+  }, [ref]);
 }
 
 /** The gliding highlight under a list of rows (Beautiful UI's Sidebar Nav): rows register under their keys, and the
@@ -271,6 +289,7 @@ export function Sidebar({ route, onSearch, onNewAgent, onNavigate, workspaceActi
   // the pages fold under their own title (#2524); the drawer's grid of icons doesn't
   const [pagesFolded, togglePages] = useFolded("pages", false, { all: false, holds: more.some((p) => p.k === activeKey) });
   const { nav, reg, hover, highlight } = useGlide(activeKey);
+  useStickyTop(nav);
   const go = useGo(onNavigate);
   const scrolled = useScrolled(nav);
 
@@ -734,7 +753,7 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
         ]} />
       )}
       <FoldScope.Provider value={AGENTS_FOLD}>
-      <Collapse open={!folded} sidebarFold>
+      <Collapse open={!folded} sidebarFold unclipped>
       <div inert={folded || undefined}>
       <GroupingBar groupings={availableGroupings} selection={shownGrouping} onChoose={chooseGroupingOutOfChatList} />
       <FilterBar selection={filter} counts={filterTotals} onChoose={choose} botmux={botmux} />

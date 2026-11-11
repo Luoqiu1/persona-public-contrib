@@ -423,6 +423,38 @@ func TestOrcaCodexReportedDraft(t *testing.T) {
 	if calls := o.Trace("terminal.send"); len(calls) != 0 {
 		t.Fatalf("typed into a reported draft: %v", calls)
 	}
+	for _, tc := range []struct {
+		name, text, want string
+		draft            *string
+	}{
+		{"older host", "› keep this draft\n  tab to queue message\n", "keep this draft\ntab to queue message", nil},
+		{"explicit empty", "› stale public text\n", "", new("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o.Handle("terminal.read", func(map[string]any) any {
+				row := map[string]any{"source": "screen", "tail": strings.Split(strings.TrimSuffix(tc.text, "\n"), "\n")}
+				if tc.draft != nil {
+					row["draft"] = *tc.draft
+				}
+				return map[string]any{"terminal": row}
+			})
+			s, err := n.codexScreen(t.Context(), "orca:tab1:leaf1")
+			if err != nil || s.View != screen.CodexComposer || s.Draft != tc.want {
+				t.Fatalf("draft %q, screen=%+v err=%v", tc.want, s, err)
+			}
+		})
+	}
+	o.Handle("terminal.read", func(map[string]any) any {
+		return map[string]any{"terminal": map[string]any{"source": "screen", "tail": []string{
+			"Would you like to run the following command?", "  $ git status", "› 1. Yes, proceed (y)",
+			"  2. No, and tell Codex what to do differently (esc)",
+			"  Press enter to confirm or esc to cancel",
+		}, "draft": "unfinished message"}}
+	})
+	s, err = n.codexScreen(t.Context(), "orca:tab1:leaf1")
+	if err != nil || s.View != screen.CodexApproval || s.Draft != "" {
+		t.Fatalf("composer draft overrode approval: screen=%+v err=%v", s, err)
+	}
 }
 
 func TestOrcaCodexTypeConfirmsReportedDraft(t *testing.T) {

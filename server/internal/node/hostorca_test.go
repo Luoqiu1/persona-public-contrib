@@ -27,6 +27,12 @@ import (
 // runtime socket (orcarttest) and a fake process table. No test here talks to a real Orca.
 
 func TestMain(m *testing.M) {
+	if os.Getenv("NODE_TEST_LAUNCH") == "1" { // the real managed-launch path, before the test harness clears its environment
+		if err := Launch(context.Background(), os.Args[2], os.Args[3:], ""); err != nil {
+			panic(err)
+		}
+		os.Exit(0)
+	}
 	if mode := os.Getenv("NODE_TEST_PLUGIN"); mode != "" { // the test binary as a plugin's program (plugins_test.go)
 		runTestPlugin(mode)
 	}
@@ -124,6 +130,7 @@ func orcaNode(t *testing.T) (*Node, *fakeHerdr, *orcarttest.Fake, *fakeProcs, st
 	h.scan = procs.scan
 	n.hosts = host.NewRegistry(h)
 	n.eng.name = proto.EngineOrca
+	t.Cleanup(n.starts.close) // before the fake Orca runtime closes
 	return n, f, o, procs, home
 }
 
@@ -174,7 +181,7 @@ func TestOrcaListsClaudeTerminals(t *testing.T) {
 		a.SlotName != "tab tab1" || a.SlotIndex != 1 {
 		t.Errorf("term_1: %+v", a)
 	}
-	if b.PaneID != "orca:tab1:leaf2" || b.Status != proto.StatusBlocked || b.ParentAgentID != sidA {
+	if b.PaneID != "orca:tab1:leaf2" || b.Status != proto.StatusBlocked || (b.ParentAgentID == nil || *b.ParentAgentID != sidA) {
 		t.Errorf("term_2: %+v", b)
 	}
 	if c.PaneID != "orca:tab2:leaf3" || c.Status != proto.StatusUnknown || c.SlotIndex != 2 {

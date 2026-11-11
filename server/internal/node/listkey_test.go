@@ -14,7 +14,11 @@ func listKeyFmt(list []proto.Session) string {
 	var b strings.Builder
 	for _, s := range list {
 		fmt.Fprintf(&b, "%s|%s|%s|%s|%s|%s|%s|%s|%d|%q|%s|%s\n", s.SessionID, s.Status, s.Title, s.PaneID, s.SpaceName, s.ParentSpaceID, s.SlotName, s.LastText, s.UpdatedAt.Unix()/10, s.Queued, s.Suggestion, s.SpawnFrom)
-		fmt.Fprintf(&b, "hierarchy:%q/%q/%q/%q/%v/%q/%q/%q/%q/%q\n", s.ParentThreadID, s.ParentSessionID, s.ParentAgentID, s.RootSessionID, s.IsSubagent, s.RepoRoot, s.Worktree, s.Branch, s.SpaceID, s.SpaceKind)
+		parentAgentID := ""
+		if s.ParentAgentID != nil {
+			parentAgentID = *s.ParentAgentID
+		}
+		fmt.Fprintf(&b, "hierarchy:%q/%q/%q/%q/%v/%q/%q/%q/%q/%q\n", s.ParentThreadID, s.ParentSessionID, parentAgentID, s.RootSessionID, s.IsSubagent, s.RepoRoot, s.Worktree, s.Branch, s.SpaceID, s.SpaceKind)
 		if s.Activity != "" {
 			fmt.Fprintf(&b, "activity:%s/%d\n", s.Activity, unixOf(s.ActivityAt))
 		}
@@ -156,7 +160,7 @@ func listKeyVariants() (proto.Session, map[string]proto.Session) {
 		Ports:     []proto.Port{{Port: 3000, PID: 7, Title: "dev"}}}
 	v := map[string]func(*proto.Session){
 		"parent_thread_id":  func(s *proto.Session) { s.ParentThreadID = "parent" },
-		"parent_agent_id":   func(s *proto.Session) { s.ParentAgentID = "coordinator" },
+		"parent_agent_id":   func(s *proto.Session) { id := "coordinator"; s.ParentAgentID = &id },
 		"parent_session_id": func(s *proto.Session) { s.ParentSessionID = "parent-public" },
 		"root_session_id":   func(s *proto.Session) { s.RootSessionID = "root-public" },
 		"is_subagent":       func(s *proto.Session) { s.IsSubagent = true },

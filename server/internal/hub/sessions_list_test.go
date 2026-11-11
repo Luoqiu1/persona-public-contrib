@@ -814,9 +814,10 @@ func TestSessionsOfOneManagerSeveralComputersExtension(t *testing.T) {
 }
 
 func TestRuntimeSummaryRetainsHostParent(t *testing.T) {
-	s := proto.Session{SessionID: "worker", ParentAgentID: "coordinator", Agent: "codex"}
+	parent := "coordinator"
+	s := proto.Session{SessionID: "worker", ParentAgentID: &parent, Agent: "codex"}
 	row := runtimeSummary(s)
-	if row.ParentAgentID != "coordinator" || row.IsCodexSubagent() {
+	if (row.ParentAgentID == nil || *row.ParentAgentID != "coordinator") || row.IsCodexSubagent() {
 		t.Fatalf("host relation changed by summary: %+v", row)
 	}
 }

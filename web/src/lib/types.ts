@@ -735,6 +735,7 @@ export interface LauncherHealth {
 
 export interface AssistantInfo {
   machine_id: string;
+  main_machine_id?: string;
   launcher?: string;
   cwd?: string;
   main?: string;

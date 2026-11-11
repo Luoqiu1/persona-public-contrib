@@ -1802,3 +1802,8 @@ session title and menu still address the original session. Workspace lineage is 
 against `scripts/mock/mock_worktree_migration.py` with invented siblings and a grandchild in separate Orca tabs.
 It checks all five groupings on desktop/phone in light/dark, exact row uniqueness, descendant tallies and repeated
 pointer/keyboard disclosure. Both origins must be dedicated loopback fixture servers.
+
+
+Synthetic hierarchy screenshots (invented sessions only): [desktop light](screenshots/agent-hierarchy/desktop-light.png),
+[desktop dark](screenshots/agent-hierarchy/desktop-dark.png), [phone light](screenshots/agent-hierarchy/phone-light.png),
+and [phone dark](screenshots/agent-hierarchy/phone-dark.png).

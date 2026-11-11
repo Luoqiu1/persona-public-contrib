@@ -876,3 +876,10 @@ same owner, manager, host and workspace safety checks.
 A workspace row has separate disclosure, selection and action controls. When merging shared sidebar fold timing, keep that structure and apply `sidebarFoldMotion` to its disclosure chevron and `sidebarFold` to the matching `Collapse`. Choosing either side wholesale drops either workspace controls or the shared timing; child-workspace folds need the same motion contract.
 
 The first screen also counts startup translations. Keep generic request-owner and uncertain-creation errors in the existing worktree catalog; load the advanced composer catalog with the composer. A pair of eager error labels should not make every advanced-field description part of the first screen.
+
+## Archive refusals must roll back optimistic removal (#4277)
+
+A connected delta hub keeps its pushed session rows during REST refresh. Refresh cannot restore a row the page
+optimistically removed. Keep the pre-request session snapshot and restore it immediately on archive failure,
+before refreshing. Preserve a newer pushed row if one arrived meanwhile. Exercise mounted rows and the real
+store refresh with both delta and bounded list negotiation.

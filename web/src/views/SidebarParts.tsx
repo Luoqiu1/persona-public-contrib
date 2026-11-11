@@ -1,6 +1,6 @@
 // What the sidebar's files share: the row and menu types, a row's key, the section heading and count, the badge and
 // dot colors, the pages hook and navigation. It imports none of them (Sidebar, SidebarRows, SidebarTree, SidebarRail).
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n";
 import { resolveTab } from "../lib/herdr-tree";
 import { useInboxBadge } from "../lib/inbox";
@@ -22,6 +22,8 @@ import { connPhase } from "../lib/connection";
 import { useWorkspaceBoardSetting } from "../lib/workspace-board-setting";
 import type { Session } from "../lib/types";
 import { Collapse, cx, sidebarFoldMotion, type MenuItem } from "../ui/atoms";
+import { AGENTS_FOLD, onFoldAll, setAgentsFolded } from "../lib/sidebar-api";
+import { SESSION_LIST_STYLE } from "../ui/list-metrics";
 import { Icon, type IconName } from "../ui/icons";
 import type { MenuNode } from "../lib/node-actions";
 import { contextMenuProps } from "../ui/context-menu";
@@ -136,26 +138,52 @@ export function morePagesMenu(more: NavPage[], activeKey: string, onNavigate?: (
   ];
 }
 
-const GroupHeadingOffset = createContext(0);
+const GroupHeadingOffset = createContext({ offset: 0, depth: 0 });
 
 /** Real headings stay interactive while pinned; each nested group reserves its parent's measured height. */
 export function SidebarGroup({ heading, children, className }: { heading: React.ReactNode; children: React.ReactNode; className?: string }) {
-  const above = useContext(GroupHeadingOffset);
+  const { offset: above, depth } = useContext(GroupHeadingOffset);
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setHeight(el.getBoundingClientRect().height);
+    const scroller = el.closest<HTMLElement>("[data-sidebar-rows]");
+    const controls = el.querySelector("[data-sidebar-agents-controls]");
+    const measure = () => {
+      const height = el.getBoundingClientRect().height;
+      setHeight(height);
+      if (controls) scroller?.style.setProperty("--sidebar-controls-height", `${height}px`);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); if (controls) scroller?.style.removeProperty("--sidebar-controls-height"); };
   }, []);
   return <div className={className} data-sidebar-group>
-    <div ref={ref} data-sidebar-group-heading className="sidebar-group-heading" style={{ top: `calc(var(--sidebar-sticky-top, 0px) + ${above}px)` }}>{heading}</div>
-    <GroupHeadingOffset.Provider value={above + height}>{children}</GroupHeadingOffset.Provider>
+    <div ref={ref} data-sidebar-group-heading className="sidebar-group-heading" style={{ top: `calc(var(--sidebar-sticky-top, 0px) + ${above}px)`, zIndex: 24 - depth }}>{heading}</div>
+    <GroupHeadingOffset.Provider value={{ offset: above + height, depth: depth + 1 }}>{children}</GroupHeadingOffset.Provider>
   </div>;
+}
+
+/** One action reflects the visible groups, including manual folds and keyboard/menu actions. */
+export function GroupFoldButton({ groups, onAction }: { groups: React.RefObject<HTMLElement | null>; onAction: () => void }) {
+  const [collapse, setCollapse] = useState(true);
+  useEffect(() => {
+    const root = groups.current;
+    if (!root) return;
+    const read = () => setCollapse([...root.querySelectorAll<HTMLButtonElement>("[data-sidebar-group-heading] button[aria-expanded]")]
+      .some((button) => !button.closest("[data-sidebar-agents-controls], [inert]") && button.getAttribute("aria-expanded") === "true"));
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(root, { attributes: true, attributeFilter: ["aria-expanded", "inert"], childList: true, subtree: true });
+    const off = onFoldAll((folded) => setCollapse(!folded), AGENTS_FOLD);
+    return () => { observer.disconnect(); off(); };
+  }, [groups]);
+  const label = t(collapse ? "sidebar.fold_all" : "sidebar.open_all");
+  return <button type="button" title={label} aria-label={label} onClick={() => { setAgentsFolded(collapse); onAction(); }} className={SESSION_LIST_STYLE.foldButton}>
+    <Icon name="foldToggle" size={12} stroke={2}  />
+  </button>;
 }
 
 export function Section({ title, children, folded, onToggle, right, onMenu, first, hint }: { title: React.ReactNode; children: React.ReactNode; folded: boolean; onToggle: () => void; right?: React.ReactNode; onMenu?: (at: MenuAt, el: HTMLElement) => void; first?: boolean; hint?: string }) {

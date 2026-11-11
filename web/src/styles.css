@@ -10,7 +10,7 @@
 }
 [data-sidebar-rows] {
   --sidebar-group-bg: var(--canvas);
-  scroll-padding-top: calc(var(--sidebar-sticky-top, 0px) + var(--sidebar-row));
+  scroll-padding-top: calc(var(--sidebar-sticky-top, 0px) + var(--sidebar-controls-height, 0px) + var(--sidebar-row));
 }
 
 /* Assistant trays share the dock's bounded height; count meters use the small line token. */

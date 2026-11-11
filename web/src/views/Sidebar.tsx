@@ -58,7 +58,7 @@ import { SESSION_LIST_STYLE } from "../ui/list-metrics";
 import { runtimeIdentity, runtimeOrder, runtimeRemoval, runtimeSessions } from "../lib/runtime-list";
 import { SESSIONS_LIST_FEATURE } from "../lib/session-list";
 import { NoComputers, useAddComputer } from "./machines/AddComputerEntry";
-import { BADGE_CLASS, DOT_CLASS, type GoFn, GroupCount, holdsRow, morePagesMenu, type NavPage, type NodeMenuFn, type RegFn, rowKey, type RowMenuFn, Section, useActiveKey, useGo, useNavPages } from "./SidebarParts";
+import { BADGE_CLASS, DOT_CLASS, type GoFn, GroupCount, holdsRow, morePagesMenu, type NavPage, type NodeMenuFn, type RegFn, rowKey, type RowMenuFn, Section, SidebarGroup, GroupFoldButton, useActiveKey, useGo, useNavPages } from "./SidebarParts";
 import { NavRow, PersonalAgents, PersonaRow, PinnedHeading, SessionRow, SubHeading } from "./SidebarRows";
 import { LooseSection, MachineSection, RepoMachineSection, SessionTally, type SpaceMenuFn, type WorkspaceTreeActions, SpaceSection, TodoTreeView } from "./SidebarTree";
 import { CollapseButton, PagesTally } from "./SidebarRail";
@@ -98,20 +98,6 @@ function reveal(el: HTMLElement): boolean {
     return true;
   }
   return false;
-}
-
-/** Whether a scrolling list is scrolled down from its top (rows have gone under its pinned head). */
-function useScrolled(ref: React.RefObject<HTMLElement | null>): boolean {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const n = ref.current;
-    if (!n) return;
-    const read = () => setScrolled(n.scrollTop > 0);
-    read();
-    n.addEventListener("scroll", read, { passive: true });
-    return () => n.removeEventListener("scroll", read);
-  }, [ref]);
-  return scrolled;
 }
 
 /** Keep group headings below Persona at every text size, without doing layout work on scroll. */
@@ -297,7 +283,6 @@ export function Sidebar({ route, onSearch, onNewAgent, onNavigate, workspaceActi
   const { nav, reg, hover, highlight } = useGlide(activeKey);
   useStickyTop(nav);
   const go = useGo(onNavigate);
-  const scrolled = useScrolled(nav);
 
   const conversationRow = (c: Session, label: string, pinned: boolean) => (
     <SessionRow key={c.session_id} s={c} k={`j:${c.session_id}`} reg={reg} hover={hover} active={activeKey === `j:${c.session_id}`} to={conversationPage(c.session_id, c.machine_id, c.manager)} go={go} label={label} showState={false} icon={pinned ? "pin" : undefined} onMenu={onConvMenu} menuLabel={t("conversation-menu.actions")} />
@@ -323,11 +308,10 @@ export function Sidebar({ route, onSearch, onNewAgent, onNavigate, workspaceActi
       <div ref={nav} data-sidebar-rows onMouseLeave={() => hover(null)} className="relative min-h-0 flex-1 scroll-pt-16 overflow-y-auto overscroll-contain px-2.5 pb-3">
         {highlight}
         {/* the main conversation is the column's first row, Persona with the app's mark, and only there (#2004, #5109); it
-            stays at the top while the rest scrolls (#5581), its line and a fog under it once rows go beneath */}
+            stays at the top while the rest scrolls (#5581), with a solid divider above the sticky groups */}
         <div data-sidebar-sticky className="sticky top-0 z-30 flex flex-col gap-px bg-canvas pt-1">
           <PersonaRow reg={reg} hover={hover} active={activeKey === "persona"} go={go} main={mainConversation} chord={bindings.persona} onMenu={onConvMenu} />
           <span aria-hidden data-persona-divider className="mx-2 my-1 h-px shrink-0 bg-line" />
-          <span aria-hidden data-persona-fog className={cx("pointer-events-none absolute inset-x-0 top-full h-3 bg-gradient-to-b from-canvas to-transparent transition-opacity duration-150", scrolled ? "opacity-100" : "opacity-0")} />
         </div>
         {narrow && <NavGrid pages={pages} more={more} activeKey={activeKey} go={go} onNavigate={onNavigate} />}
         {!narrow && (
@@ -715,6 +699,7 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
   // the whole block folds under its title in the sidebar (#2524); the phone's Agents page is the block, it doesn't
   const [blockFolded, toggleBlock] = useFolded("agents", false, { all: false });
   const folded = foldable && blockFolded;
+  const groupsRef = useRef<HTMLDivElement>(null);
   const [showAllRecent, setShowAllRecent] = useState(false);
   const recentShown = showAllRecent ? recent : firstAndCurrent(recent, 8, (s) => rowKey(s) === activeKey);
   const [linkTargetSession, setLinkTargetSession] = useState<Session | undefined>();
@@ -732,8 +717,10 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
   const tree = { machines, reg, hover, activeKey, go, mutes, onSpaceMenu, onRowMenu, onNodeMenu, onNavigate };
 
   return (
-    <>
-      <div className="group/sec mt-3 flex items-center gap-1 px-2">
+    <div data-sidebar-agents ref={groupsRef}>
+    <SidebarGroup className="mt-3" heading={
+      <div data-sidebar-agents-controls className="pb-1">
+      <div className="group/sec flex items-center gap-1 px-2">
         {foldable ? (
           <button type="button" aria-expanded={!folded} onClick={toggleBlock} className="touch-hit relative z-10 flex min-w-0 flex-1 items-center gap-1 whitespace-nowrap text-left text-[11px] font-semibold text-ink-3 hover:text-ink-2">
             <span className="min-w-0 truncate">Agents</span>
@@ -743,17 +730,18 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
           <span className="min-w-0 flex-1 text-[11px] font-semibold text-ink-3">Agents</span>
         )}
         {folded && <SessionTally sessions={live} folded />}
-        <button type="button" title={t("sidebar.open_all")} aria-label={t("sidebar.open_all")} onClick={() => { setAgentsFolded(false); hover(null); }} className={SESSION_LIST_STYLE.foldButton}>
-          <Icon name="chevron" size={12} stroke={2} />
-        </button>
-        <button type="button" title={t("sidebar.fold_all")} aria-label={t("sidebar.fold_all")} onClick={() => { setAgentsFolded(true); hover(null); }} className={SESSION_LIST_STYLE.foldButton}>
-          <Icon name="up" size={12} stroke={2} />
-        </button>
+        <GroupFoldButton groups={groupsRef} onAction={() => hover(null)} />
         <button type="button" title={listLabel} aria-label={listLabel} aria-haspopup="menu" aria-expanded={Boolean(listMenu.anchor)} onClick={listMenu.open} className={cx("touch-hit relative z-10 flex size-5 shrink-0 items-center justify-center rounded-[5px] hover:bg-hover hover:text-ink-2", byUpdate ? "text-accent" : "text-ink-3", listMenu.anchor && "bg-hover")}>
           <Icon name={byUpdate ? "clock" : "more"} size={12} stroke={2} />
         </button>
         {add && <SectionAdd label={t("sidebar.new_agent")} onClick={onNewAgent} />}
       </div>
+      <Collapse open={!folded} sidebarFold>
+        <GroupingBar groupings={availableGroupings} selection={shownGrouping} onChoose={chooseGroupingOutOfChatList} />
+        <FilterBar selection={filter} counts={filterTotals} onChoose={choose} botmux={botmux} />
+      </Collapse>
+      </div>
+    }>
       {listMenu.anchor && (
         <Menu anchor={listMenu.anchor} onClose={listMenu.close} align="right" items={[...(shownGrouping === "state" ? [] : AGENT_SORTS.map((o): MenuItem => ({
           key: `sort:${o.key}`, label: o.label, icon: o.key === "updated" ? "clock" : "layers", checked: sortChoice === o.key,
@@ -772,8 +760,6 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
       <FoldScope.Provider value={AGENTS_FOLD}>
       <Collapse open={!folded} sidebarFold unclipped>
       <div inert={folded || undefined}>
-      <GroupingBar groupings={availableGroupings} selection={shownGrouping} onChoose={chooseGroupingOutOfChatList} />
-      <FilterBar selection={filter} counts={filterTotals} onChoose={choose} botmux={botmux} />
       <AgentDimensionFilterBar filters={dimFilters} onChange={setDimFilters} facets={facets} plan={searchPlan} chatList={chatList} onToggleChatList={toggleChatList} />
       {/* "herdr is not running on <computer>" with "Start" (#1916): before a message to an agent there fails */}
       {/* the one line about the hub (#2897): updating, rolled back, a newer version or image */}
@@ -865,6 +851,7 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
       </div>
       </Collapse>
       </FoldScope.Provider>
+    </SidebarGroup>
       {/* the row's ⋯ (and its right click): pin, rename, mute, the todo it hangs on, close, delete — a long press on iOS
           Safari sends no contextmenu, so nothing lives only there */}
       {rowMenu && <AgentRowMenu s={rowMenu.s} anchor={rowMenu.anchor} at={rowMenu.at} onClose={() => setRowMenu(null)} onRename={setRenaming} onDelete={setDeleting} onLinkTodo={setLinkTargetSession} onCloseAgent={setClosingAgent} onArchiveClose={setArchiveClosing} />}
@@ -889,7 +876,7 @@ function LegacyAgentsBlock({ reg, hover, activeKey, go, onNewAgent, onNavigate, 
       <MarkSeenDialog list={confirmSeen} onClose={closeMarkSeen} onDone={clearKept} />
       <LinkTodoDialog open={Boolean(linkTargetSession)} session={linkTargetSession} onClose={closeLinkSession} />
       <LinkTodoDialog open={Boolean(linkTargetSpace)} space={linkTargetSpace} onClose={closeLinkSpace} />
-    </>
+    </div>
   );
 }
 

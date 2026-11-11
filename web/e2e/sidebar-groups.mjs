@@ -27,14 +27,18 @@ try {
     await context.route("**/api/v1/sessions", async (route) => {
       const response = await route.fetch();
       if (response.status() === 304) return route.fulfill({ response });
-      const body = await response.json();
+      const text = await response.text();
+      if (!text.trim()) return route.fulfill({ response });
+      const body = JSON.parse(text);
       if (body.sessions) body.sessions = expandSessions(body.sessions);
       await route.fulfill({ response, json: body });
     });
     await context.route("**/api/v1/todos", async (route) => {
       const response = await route.fetch();
       if (response.status() === 304) return route.fulfill({ response });
-      const body = await response.json();
+      const text = await response.text();
+      if (!text.trim()) return route.fulfill({ response });
+      const body = JSON.parse(text);
       if (body.todos) body.todos = expandTodos(body.todos);
       await route.fulfill({ response, json: body });
     });
@@ -60,13 +64,14 @@ try {
       const segment = grouping.getByRole("radio").filter({ hasText: new RegExp(`^${mode}$`) });
       assert.equal(await segment.count(), 1, `${mode} grouping is offered`);
       await segment.click();
-      await sidebar.getByRole("button", { name: "Expand all", exact: true }).click();
+      const open = sidebar.getByRole("button", { name: "Expand all", exact: true });
+      if (await open.count()) await open.click();
       await page.waitForTimeout(500); // Collapse releases its animation clipping after settling.
       const check = await grouping.evaluate((bar) => {
-        const content = bar.parentElement;
+        const content = bar.closest("[data-sidebar-agents]");
         const scroller = bar.closest("[data-sidebar-rows]") ?? bar.closest("main").querySelector(".overflow-y-auto");
         scroller.scrollTop = 0;
-        const groups = [...content.querySelectorAll("[data-sidebar-group]")].filter((el) => !el.parentElement.closest("[data-sidebar-group]"));
+        const groups = [...content.querySelectorAll("[data-sidebar-group]")].filter((el) => el.parentElement.closest("[data-sidebar-group]")?.parentElement?.hasAttribute("data-sidebar-agents"));
         const long = groups.filter((el) => el.getBoundingClientRect().height > 160);
         const target = long[0];
         if (!target) return { long: 0 };
@@ -80,7 +85,7 @@ try {
       assert(check.headingTop >= check.personaBottom - 1, `${mode} preserves Persona`);
       const nested = await grouping.evaluate((bar) => {
         const scroller = bar.closest("[data-sidebar-rows]") ?? bar.closest("main").querySelector(".overflow-y-auto");
-        const child = [...bar.parentElement.querySelectorAll("[data-sidebar-group] [data-sidebar-group]")].find((el) => el.getBoundingClientRect().height > scroller.clientHeight + 120);
+        const child = [...bar.closest("[data-sidebar-agents]").querySelectorAll("[data-sidebar-group] [data-sidebar-group]")].find((el) => el.getBoundingClientRect().height > scroller.clientHeight + 120);
         if (!child) return { checked: false };
         const parent = child.parentElement.closest("[data-sidebar-group]").querySelector(":scope > [data-sidebar-group-heading]");
         const heading = child.querySelector(":scope > [data-sidebar-group-heading]");
@@ -89,10 +94,20 @@ try {
         return { checked: true, pinned: Math.abs(heading.getBoundingClientRect().top - scroller.getBoundingClientRect().top - top) < 2, stacked: heading.getBoundingClientRect().top >= parent.getBoundingClientRect().bottom - 1 };
       });
       if (nested.checked) assert(nested.pinned && nested.stacked, `Nested headings stack and pin: ${JSON.stringify(nested)}`);
+      const toolbar = await grouping.evaluate((bar) => {
+        const root = bar.closest("[data-sidebar-agents]");
+        const header = root.querySelector("[data-sidebar-agents-controls]").parentElement;
+        const scroller = bar.closest("[data-sidebar-rows]") ?? bar.closest("main").querySelector(".overflow-y-auto");
+        const top = Number.parseFloat(getComputedStyle(header).top);
+        const rect = header.getBoundingClientRect();
+        const element = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        return { pinned: Math.abs(rect.top - scroller.getBoundingClientRect().top - top) < 2, unobscured: header.contains(element), onlyOneAction: root.querySelectorAll("[data-sidebar-agents-controls] button[title='Collapse all'], [data-sidebar-agents-controls] button[title='Expand all']").length === 1 };
+      });
+      assert(toolbar.pinned && toolbar.unobscured && toolbar.onlyOneAction, `Toolbar stays pinned, clear and has one action: ${JSON.stringify(toolbar)}`);
       await page.screenshot({ path: join(output, `${width}-${theme}-${textSize}-${mode.toLowerCase()}.png`) });
       const transition = await grouping.evaluate((bar) => {
         const scroller = bar.closest("[data-sidebar-rows]") ?? bar.closest("main").querySelector(".overflow-y-auto");
-        const groups = [...bar.parentElement.querySelectorAll("[data-sidebar-group]")].filter((el) => !el.parentElement.closest("[data-sidebar-group]") && el.getBoundingClientRect().height > 160);
+        const groups = [...bar.closest("[data-sidebar-agents]").querySelectorAll("[data-sidebar-group]")].filter((el) => el.parentElement.closest("[data-sidebar-group]")?.parentElement?.hasAttribute("data-sidebar-agents") && el.getBoundingClientRect().height > 160);
         if (groups.length < 2) return { siblings: false };
         const saved = scroller.scrollTop;
         const first = groups[0].querySelector(":scope > [data-sidebar-group-heading]");
@@ -110,8 +125,8 @@ try {
       if (transition.siblings) assert(transition.replaced && transition.pinned && transition.restored, `${mode} switches siblings and restores on reverse scroll: ${JSON.stringify(transition)}`);
       await sidebar.getByRole("button", { name: "Collapse all", exact: true }).click();
       await page.waitForTimeout(500);
-      assert.equal(await grouping.evaluate((bar) => [...bar.parentElement.querySelectorAll("[data-sidebar-group-heading] button[aria-expanded]")].every((b) => b.getAttribute("aria-expanded") === "false")), true);
-      results.push({ width, theme, textSize, mode, ...check, ...transition, nested });
+      assert.equal(await grouping.evaluate((bar) => [...bar.closest("[data-sidebar-agents]").querySelectorAll("[data-sidebar-group-heading] button[aria-expanded]")].filter((b) => !b.closest("[data-sidebar-agents-controls]")).every((b) => b.getAttribute("aria-expanded") === "false")), true);
+      results.push({ width, theme, textSize, mode, ...check, ...transition, nested, toolbar });
     }
     assert.deepEqual(failures, []);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);

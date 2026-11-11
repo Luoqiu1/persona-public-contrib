@@ -312,6 +312,8 @@ export interface Session {
   /** Newest running workflow, compact metadata only (no agents, phases or tools). */
   workflow_progress?: Workflow;
   parent_session_id?: string;
+  /** Host-reported coordinator; separate from provider-native subagent identity. */
+  parent_agent_id?: string;
   root_session_id?: string;
   is_subagent?: boolean;
   /** Claude Code workflow runs it launched in the last day, newest first (#2935); older hubs leave it out. */

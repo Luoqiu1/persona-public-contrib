@@ -112,12 +112,13 @@ export async function brotliCopies(dir: string, files: string[]): Promise<{ file
  * lib/refusal-public.ts, their words), and 640 B for holding earlier feed cards off the newest page until their page
  * loads (#4485 added 520 B to ja: the first-screen feed-page gate), and 64 B for the credential-owner bootstrap
  * (#4518, allocated in #4597), and 128 B for sending an edit of the last message safely (#4605 added 115 B to ja:
- * ChatView's wait for Claude's box after the rewind, the send's clear_draft and the give-back of a refused edit),
- * and 512 B for explicit host-worker hierarchy (#4575: 98 B above the fixed main baseline for coordinator rows,
- * disclosures and descendant tallies).
+ * ChatView's wait for Claude's box after the rewind, the send's clear_draft and the give-back of a refused edit), and
+ * 1,664 B for Forward (#3899 added 1,588 B: the action, the forward's card in a sent bubble and over the box, and its
+ * strings; the picker loads on the first Forward), and 512 B for explicit host-worker hierarchy (#4575: 98 B above
+ * the earlier fixed main baseline for coordinator rows, disclosures and descendant tallies).
  * Raise it on purpose, in the change that needs it.
  */
-export const FIRST_SCREEN_BUDGET = 595_904;
+export const FIRST_SCREEN_BUDGET = 597_568;
 
 /** What the built-in hub sends for `files` (paths below `dir`) to a browser that takes br: each one's brotli copy, or
  *  the file itself when it has none. Build time only. */

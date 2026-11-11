@@ -8,7 +8,8 @@ vi.hoisted(() => {
 import type { Session } from "../lib/types";
 import { setAllFolded } from "../lib/sidebar-api";
 import { FoldScope } from "../lib/use-folded";
-import { AgentTreeRows } from "./SidebarTree";
+import { nestAgents, type TreeTodo } from "../lib/todo-tree";
+import { AgentTreeRows, TreeTodoRows } from "./SidebarTree";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let host: HTMLDivElement;
@@ -45,4 +46,29 @@ it("folds repeatedly, counts hidden attention, follows fold-all, and reveals an 
   act(() => setAllFolded(true, "agents"));
   act(() => setAllFolded(false, "agents"));
   expect(button.getAttribute("aria-expanded")).toBe("true");
+});
+
+it("keeps a pinned direction's row keys, context and nested folds separate from the Agents tree", () => {
+  const registered = new Set<string>();
+  const agents = nestAgents(sessions, undefined, Date.now());
+  const td: TreeTodo = { key: "direction-task", name: "Example task", state: "needs_you", agents, sessions, folded: false };
+  const render = () => act(() => root.render(<>
+    <section data-copy="agents"><AgentTreeRows sessions={sessions} activeKey="" scope="demo-group" row={(s) => <a href={`/s/${s.machine_id}/${s.session_id}`}>{s.title}</a>} /></section>
+    <section data-copy="direction"><TreeTodoRows td={td} machineLabel={() => "Example computer"} noContext keyPrefix="d:example:" reg={(key) => { registered.add(key); return () => {}; }} hover={() => {}} activeKey="" go={() => (event) => event.preventDefault()} /></section>
+  </>));
+  render();
+  const copy = host.querySelector('[data-copy="direction"]')!;
+  const direction = copy.querySelector('[data-agent-parent="s:demo/parent"] > div > button')!;
+  const list = host.querySelector('[data-copy="agents"] [data-agent-parent="s:demo/parent"] > div > button')!;
+  expect(registered).toEqual(new Set(sessions.map((s) => `d:example:s:demo/${s.session_id}`)));
+  expect(copy.textContent).not.toContain("Example computer");
+  expect(copy.querySelectorAll('a[href$="/nested"]')).toHaveLength(1);
+  act(() => (direction as HTMLButtonElement).click());
+  expect(direction.getAttribute("aria-expanded")).toBe("false");
+  expect(list.getAttribute("aria-expanded")).toBe("true");
+  expect(localStorage.getItem(`fold:d:example:${agents[0].key}:children`)).toBe("1");
+  act(() => root.render(null));
+  render();
+  expect(host.querySelector('[data-copy="direction"] [data-agent-parent="s:demo/parent"] > div > button')!.getAttribute("aria-expanded")).toBe("false");
+  expect(host.querySelector('[data-copy="agents"] [data-agent-parent="s:demo/parent"] > div > button')!.getAttribute("aria-expanded")).toBe("true");
 });

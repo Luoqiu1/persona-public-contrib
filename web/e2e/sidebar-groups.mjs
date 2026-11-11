@@ -115,6 +115,8 @@ try {
     }
     assert.deepEqual(failures, []);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    // Finish intercepted polling responses before closing the context aborts their bodies.
+    await context.unrouteAll({ behavior: "wait" });
     await context.close();
   }
 } catch (error) {

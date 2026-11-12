@@ -29,11 +29,7 @@ func resolveHostHierarchy(list []proto.Session, agents map[string]host.Agent) {
 			continue
 		}
 		if id := byPane[pane{s.MachineID, s.Manager, a.ParentPaneID}]; id != s.SessionID {
-			if id == "" {
-				s.ParentAgentID = nil
-			} else {
-				s.ParentAgentID = &id
-			}
+			s.SetParentAgentID(id)
 		}
 	}
 }

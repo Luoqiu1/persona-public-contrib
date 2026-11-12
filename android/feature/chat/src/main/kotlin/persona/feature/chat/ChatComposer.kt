@@ -70,6 +70,8 @@ fun ChatComposer(
     mentions: ComposerMentions? = null,
     /** A session picked in the @ menu, as the context that goes with the next message. */
     onMention: (ChatLinkContext) -> Unit = {},
+    /** A task picked in the @ menu (Persona's conversations, [ComposerMentions.tasks]): the next message goes to it. */
+    onMentionTask: (String) -> Unit = {},
     /** /model in the "/" list, which opens the model choices instead of typing (Claude in a terminal pane). */
     onModel: (() -> Unit)? = null,
     /** /loop in the "/" list, with a line under the box saying what it will do (Claude Code only, web `hasLoop`). */
@@ -107,9 +109,9 @@ fun ChatComposer(
     // A photo taken here waits in cache/chat-captures until it leaves this draft: removed, or sent and cleared. Only the
     // draft's own captures go; the folder is never swept (another conversation's draft may still hold one).
     LaunchedEffect(state) {
-        var before = state.attachments
-        snapshotFlow { state.attachments }.collect { now ->
-            val gone = leftCaptures(before, now, context.packageName)
+        var before = state.attachments to state.photoEdits.values.map { it.sourceUri }
+        snapshotFlow { state.attachments to state.photoEdits.filterKeys { id -> state.attachments.any { it.id == id } }.values.map { it.sourceUri } }.collect { now ->
+            val gone = leftCaptures(before.first, now.first, context.packageName, before.second, now.second)
             before = now
             if (gone.isNotEmpty()) withContext(Dispatchers.IO) { gone.forEach { deleteCapture(context, it) } }
         }
@@ -174,7 +176,11 @@ fun ChatComposer(
         editOpening = true
         scope.launch {
             try {
-                editing = ComposerPhotoEdit(photo, withContext(Dispatchers.IO) { decodePhoto(context, Uri.parse(photo.uri)) })
+                // An edited photo opens from its source with its edits, still undoable; its source gone, it starts over on itself.
+                val prior = state.photoEdits[photo.id]
+                val source = prior?.let { runCatching { withContext(Dispatchers.IO) { decodePhoto(context, Uri.parse(it.sourceUri)) } }.getOrNull() }
+                editing = if (prior != null && source != null) ComposerPhotoEdit(photo, source, prior.sourceUri, prior)
+                    else ComposerPhotoEdit(photo, withContext(Dispatchers.IO) { decodePhoto(context, Uri.parse(photo.uri)) })
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { onNotice(resources.getString(R.string.chat_attach_edit_unreadable)) }
             finally { editOpening = false }
@@ -182,14 +188,15 @@ fun ChatComposer(
     }
     // "Done": the editor spins while the new photo is written (JPEG like a picked photo) and uploaded, then closes. Only an
     // upload that worked replaces the original; the old path leaves the message with it.
-    fun finishEdit(edit: ComposerPhotoEdit, result: Bitmap) {
-        if (result === edit.source) { editing = null; return } // nothing drawn
+    fun finishEdit(edit: ComposerPhotoEdit, result: Bitmap, done: ImageEditState) {
+        if (result === edit.source && edit.prior == null) { editing = null; return } // nothing done to a photo never edited
         scope.launch {
             var edited: ComposerAttachment? = null
             var kept = false
             try {
                 edited = MediaShare.writeEditedPhoto(context, result)
-                val outcome = state.replaceWithEdited(edit.original, edited) { photo ->
+                val carried = PhotoEdits(edit.sourceUri, done).takeUnless { done.edits.isEmpty }
+                val outcome = state.replaceWithEdited(edit.original, edited, carried) { photo ->
                     uploadAttachment(context, checkNotNull(service), session, photo)
                 }
                 kept = outcome == PhotoEditOutcome.Replaced
@@ -241,7 +248,9 @@ fun ChatComposer(
 
     LaunchedEffect(visible) { if (!visible) { menu = false; confirmClear = false; cameraDenied = false; editing = null; expandedEditor = false } }
     editing?.let { edit ->
-        key(edit) { ImageEditor(edit.source, onCancel = { if (editing === edit) editing = null }, onDone = { finishEdit(edit, it) }) }
+        var done by remember(edit) { mutableStateOf(ImageEditState()) }
+        key(edit) { ImageEditor(edit.source, onCancel = { if (editing === edit) editing = null }, onDone = { finishEdit(edit, it, done) },
+            start = edit.prior?.state ?: ImageEditState(), onEdited = { done = it }) }
     }
     // Voice input: what the phone's recognizer heard goes at the end of the draft, to edit before sending.
     val dictation = rememberDictation(onHeard = { state.appendDictation(it) }, onError = onNotice)
@@ -256,14 +265,21 @@ fun ChatComposer(
     val mention = if (enabled && mentions != null && suggestions.isEmpty() && selection.collapsed) mentionAt(state.value.text, selection.start) else null
     val mentionRows = remember(mentions, mention?.query) { if (mentions != null && mention != null) mentionRows(mentions, mention.query) else emptyList() }
     val usedFile = stringResource(R.string.chat_mention_used_file)
+    // With tasks in the list each group says what a pick does: iOS's "Message a Task", then the files and sessions.
+    val taskSection = stringResource(R.string.chat_tasks_mention_title)
+    val otherSection = stringResource(R.string.chat_mention).takeIf { mentionRows.any { it is MentionRow.Task } }
     val mentionItems = mentionRows.map { row ->
         when (row) {
+            is MentionRow.Task -> ComposerSuggestion(row.task.title, row.task.place, key = row.key, flexible = true,
+                section = taskSection, status = row.task.status)
             is MentionRow.File -> {
                 val relative = row.insert.removePrefix("@").trimEnd()
-                ComposerSuggestion(relative.substringAfterLast('/'), relative.substringBeforeLast('/', "").ifEmpty { usedFile }, key = row.key, flexible = true)
+                ComposerSuggestion(relative.substringAfterLast('/'), relative.substringBeforeLast('/', "").ifEmpty { usedFile }, key = row.key,
+                    flexible = true, section = otherSection)
             }
             is MentionRow.Quote -> ComposerSuggestion(row.session.displayTitle,
-                stringResource(R.string.chat_mention_session_detail, sessionMentionDetail(row.session)), key = row.key, flexible = true)
+                stringResource(R.string.chat_mention_session_detail, sessionMentionDetail(row.session)), key = row.key, flexible = true,
+                section = otherSection)
         }
     }
     fun pickMention(picked: ComposerSuggestion) {
@@ -271,6 +287,8 @@ fun ChatComposer(
         val row = mentionRows.firstOrNull { it.key == picked.key } ?: return
         state.beginEdit()
         when (row) {
+            // The @word goes; the next message goes to the task (iOS `TaskMentionList`), as its Message sets it.
+            is MentionRow.Task -> { onMentionTask(row.task.id); state.value = replaceMention(state.value, token, "") }
             is MentionRow.File -> state.value = replaceMention(state.value, token, row.insert)
             // A session goes with the message as a quote, not as text (web pickMention).
             is MentionRow.Quote -> { onMention(sessionQuote(row.session, resources)); state.value = replaceMention(state.value, token, "") }
@@ -352,7 +370,7 @@ fun ChatComposer(
             ComposerSuggestions(suggestions.map { ComposerSuggestion(it.word, it.detail, destructive = it.clear) },
                 onPick = { picked -> suggestions.firstOrNull { it.word == picked.word }?.let(::pick) },
                 modifier = Modifier.padding(vertical = Tokens.Space.xs))
-            // The @ menu: files this chat used, then other sessions; a word that matches nothing says so.
+            // The @ menu: Persona's open tasks, files this chat used, then other sessions; a word that matches nothing says so.
             ComposerSuggestions(mentionItems, onPick = ::pickMention, modifier = Modifier.padding(vertical = Tokens.Space.xs))
             if (mention != null && mentionItems.isEmpty()) Text(stringResource(R.string.chat_mention_no_match),
                 Modifier.padding(vertical = Tokens.Space.xs), style = PersonaTheme.type.caption, color = PersonaTheme.palette.ink2)

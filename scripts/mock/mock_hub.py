@@ -51,7 +51,7 @@ def features():
                 ["assistant_compact", "assistant_main_new", "assistant_main_clear"] if os.environ.get("MOCK_MAIN_ACTIONS") == "1" else []) + (
                 ["messaging"] if os.environ.get("MOCK_MESSAGING") == "1" else []) + (
                 ["conversation_origin"] if os.environ.get("MOCK_AUTO_CONVERSATIONS") == "1" else []) + (
-                ["sessions_list", "sessions_lookup", "sessions_hierarchy"] if os.environ.get("MOCK_SESSIONS_LIST") == "1" else []) + (
+                ["sessions_list", "sessions_lookup", "sessions_hierarchy", "sessions_todo", "sessions_quick_filters"] if os.environ.get("MOCK_SESSIONS_LIST") == "1" else []) + (
                 ["sessions_catalog"] if CATALOG else []) + (
                 ["preview"] if os.environ.get("MOCK_PREVIEW") else []) + (
                 ["task_cron"] if os.environ.get("MOCK_CRON") == "1" else []) + (
@@ -17083,6 +17083,16 @@ def summary_row(s):
     return out
 
 
+def pane_origin(s):
+    """Where a session was opened, as the hub's sessionorigin.Of says it (the paged list's pane_source)."""
+    if s.get("space_kind") == "codex_app" or s.get("host") in ("paseo", "cindy") or (s.get("source_kind") == "runtime" and s.get("source_instance_id") == "orca"):
+        return "desktop"
+    pane = s.get("pane_id") or ""
+    if not pane:
+        return "unknown"
+    return "feishu" if pane.split(":", 1)[0] == "botmux" and ":" in pane else "terminal"
+
+
 def paged_sessions(query):
     """Small screenshot fixture for paging hubs; unqueried reads retain the legacy full list.
 
@@ -17124,6 +17134,12 @@ def paged_sessions(query):
         if len(pairs[key]) > 64 or any(not (isinstance(p, list) and len(p) == 2 and all(isinstance(x, str) for x in p) and p[0]) for p in pairs[key]):
             return {"error": key + " must be a JSON array of a machine id and a value", "code": "invalid_query"}, 400
     places, spaces = pairs["place"], pairs["space"]
+    # sessions_todo (#6662): todo=<id> the sessions on that open to-do, todo=none the sessions on none
+    todo = query.get("todo", [""])[0]
+    # sessions_quick_filters (#6662): waiting=0|1 (only waiting in the background, or not), pane_source=<origin> and
+    # exclude_pane_source=<origin>
+    waiting = query.get("waiting", [""])[0]
+    origin, not_origin = query.get("pane_source", [""])[0], query.get("exclude_pane_source", [""])[0]
 
     def matching(rows):
         rows = [s for s in rows if (not roots or not s.get("folded_under")) and (not under or s.get("folded_under") == under)
@@ -17133,6 +17149,9 @@ def paged_sessions(query):
                 and (not query.get("project", [""])[0] or query["project"][0] == (s.get("repo_root") or s.get("workspace_cwd") or s.get("cwd", "")))
                 and (not places or [s["machine_id"], s.get("repo_root") or s.get("workspace_cwd") or s.get("cwd", "")] in places)
                 and (not spaces or [s["machine_id"], s.get("space_id") or s.get("workspace_id", "")] in spaces)
+                and (not todo or (s.get("todo") or {}).get("id", "") == ("" if todo == "none" else todo))
+                and (not waiting or bool(s.get("background_waiting")) == (waiting in ("1", "true")))
+                and (not origin or pane_origin(s) == origin) and (not not_origin or pane_origin(s) != not_origin)
                 and (not search or search in "\n".join(str(s.get(k, "")) for k in ("title", "cwd", "space_name", "slot_name", "last_text")).lower())]
         rows.sort(key=LIST_TUPLE)
         rows.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
@@ -17141,10 +17160,14 @@ def paged_sessions(query):
     if CATALOG and query.get("catalog", [""])[0] in ("1", "true"):
         return session_catalog(rows, revision, state_of), 200
     if query.get("counts", [""])[0] == "1":
-        counts = {"total": len(rows), "revision": revision, "machine": {}, "project": {}, "group": {}, "state": {}}
+        counts = {"total": len(rows), "revision": revision, "machine": {}, "project": {}, "group": {}, "state": {}, "todo": {}, "pane_source": {}}
+        waits = sum(1 for s in rows if s.get("background_waiting") and state_of(s) == "working")
+        if waits:
+            counts["background_waiting"] = waits
         for s in rows:
             values = {"machine": s["machine_id"], "project": s.get("repo_root") or s.get("workspace_cwd") or s.get("cwd", ""),
-                      "group": s.get("space_id") or s.get("workspace_id", ""), "state": state_of(s)}
+                      "group": s.get("space_id") or s.get("workspace_id", ""), "state": state_of(s), "todo": (s.get("todo") or {}).get("id", ""),
+                      "pane_source": pane_origin(s)}
             for key, value in values.items():
                 counts[key][value] = counts[key].get(value, 0) + 1
         return counts, 200
@@ -23180,7 +23203,7 @@ MOCK_HELP = [
     "MOCK_CF_ACCESS=<client id>:<client secret>  The hub behind Cloudflare Access: /api/ requests without those two CF-Access-Client-* headers get a 302 to an Access login (no token) or Access's 403 page (wrong token) (#3502)",
     "MOCK_KB_TOPICS=1  Knowledge base: five topics of knowledge points from the example projects and chats (Topics tab, a topic's page, the knowledge map)",
     "MOCK_KB_SELECTION=missing|future|fail  Settings › Knowledge selection: a hub from before it (404) / a document with a field clients don't know / a save the hub refuses (503)",
-    "MOCK_SESSIONS_LIST=1  Paged Agents, counts and exact lookup; list-mode sockets send hints instead of full lists (#6362)",
+    "MOCK_SESSIONS_LIST=1  Paged Agents, counts, exact lookup and by to-do (todo=, #6662); list-mode sockets send hints instead of full lists (#6362)",
     "MOCK_SESSIONS_MANY=<n>  n more idle sessions to page through; GET /mock/sessions/touch expires the old cursors (#4410)",
     "MOCK_SIDE_SESSIONS=1  Two Claude desktop side sessions under the PR review (parent_agent_id, #5935), one waiting for you",
     "MOCK_SESSIONS_CATALOG=1  With MOCK_SESSIONS_LIST=1: catalog=1, place= and space= on the paged list, a Windows PC, one repository on two computers and a plain notes folder on two",

@@ -7159,6 +7159,41 @@
         }
       }
     },
+    "%lld events [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld event"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld events"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个日程"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定%lld件"
+          }
+        }
+      }
+    },
     "%lld expired" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19885,6 +19920,29 @@
       },
       "extractionState" : "manual"
     },
+    "Allow Calendars in Persona to see other days [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow Calendars in Persona to see other days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Persona 里允许访问日历后显示其他日子的日程"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personaでカレンダーを許可すると、ほかの日の予定も表示されます"
+          }
+        }
+      }
+    },
     "Allow Calendars in Persona to see your events [Home Widgets]" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -29303,6 +29361,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日历选项"
+          }
+        }
+      }
+    },
+    "Calendar [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日历"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カレンダー"
           }
         }
       }
@@ -50050,6 +50131,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1日のまとめ"
+          }
+        }
+      }
+    },
+    "Day [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日付"
           }
         }
       }
@@ -85786,6 +85890,29 @@
         }
       }
     },
+    "Month [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月"
+          }
+        }
+      }
+    },
     "More" : {
       "localizations" : {
         "en" : {
@@ -92612,6 +92739,29 @@
         }
       },
       "extractionState" : "manual"
+    },
+    "No events [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No events"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这天没有日程"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定はありません"
+          }
+        }
+      }
     },
     "No files" : {
       "localizations" : {
@@ -103765,6 +103915,29 @@
         }
       }
     },
+    "Open Persona to see this day [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Persona to see this day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 Persona 后显示这天的日程"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personaを開くとこの日の予定が表示されます"
+          }
+        }
+      }
+    },
     "Open Persona to sync extension capabilities." : {
       "localizations" : {
         "en" : {
@@ -110972,6 +111145,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选一个提交"
+          }
+        }
+      }
+    },
+    "Pick a Day [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick a Day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择日期"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日付を選択"
           }
         }
       }
@@ -133354,6 +133550,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "显示全部"
+          }
+        }
+      }
+    },
+    "Show Calendar View [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Calendar View"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换日历视图"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カレンダーの表示を切り替え"
           }
         }
       }
@@ -162267,29 +162486,6 @@
         }
       }
     },
-    "Today's date and what's next on your calendar. [Home Widgets]" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Today's date and what's next on your calendar."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今天的日期和接下来的日程。"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今日の日付と次の予定。"
-          }
-        }
-      }
-    },
     "Today's steps, last night's sleep and your resting heart rate. [Home Widgets]" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -162332,6 +162528,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今日のToDo。ウィジェットでそのまま完了できます。"
+          }
+        }
+      }
+    },
+    "Today, this week or this month on your calendar. [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today, this week or this month on your calendar."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天、本周或本月的日程。"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日、今週、今月の予定。"
           }
         }
       }
@@ -162633,6 +162852,29 @@
         }
       },
       "extractionState" : "manual"
+    },
+    "Tomorrow [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomorrow"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明天"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明日"
+          }
+        }
+      }
     },
     "Too large to edit here (over 1 MB)" : {
       "extractionState" : "manual",
@@ -171896,6 +172138,29 @@
       },
       "extractionState" : "manual"
     },
+    "View [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视图"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示"
+          }
+        }
+      }
+    },
     "View [Inbox Hand-Off]" : {
       "localizations" : {
         "en" : {
@@ -174363,6 +174628,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "周"
+          }
+        }
+      }
+    },
+    "Week [Home Widgets]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "週"
           }
         }
       }
@@ -177117,6 +177405,29 @@
       "extractionState" : "manual"
     },
     "Widget" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Widget"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小组件"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウィジェット"
+          }
+        }
+      }
+    },
+    "Widget [Home Widgets]" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {

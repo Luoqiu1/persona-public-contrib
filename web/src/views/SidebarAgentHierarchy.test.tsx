@@ -4,6 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 vi.hoisted(() => {
   window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })) as typeof window.matchMedia;
+  // a long group is drawn a part at a time only where the browser has both observers (WindowedRows)
+  const inert = class { observe() {} unobserve() {} disconnect() {} };
+  globalThis.ResizeObserver ??= inert as unknown as typeof ResizeObserver;
+  globalThis.IntersectionObserver ??= inert as unknown as typeof IntersectionObserver;
 });
 import type { Session } from "../lib/types";
 import { setAllFolded } from "../lib/sidebar-api";
@@ -71,4 +75,16 @@ it("keeps a pinned direction's row keys, context and nested folds separate from 
   render();
   expect(host.querySelector('[data-copy="direction"] [data-agent-parent="s:demo/parent"] > div > button')!.getAttribute("aria-expanded")).toBe("false");
   expect(host.querySelector('[data-copy="agents"] [data-agent-parent="s:demo/parent"] > div > button')!.getAttribute("aria-expanded")).toBe("true");
+});
+
+it("draws a long group a part at a time by its top-level agents, with the open worker's parent drawn", () => {
+  const many = Array.from({ length: 300 }, (_, i) => session(`agent-${i}`));
+  const long = [...many, session("late-worker", { parent_agent_id: "agent-250" })];
+  act(() => root.render(<FoldScope value="agents"><AgentTreeRows sessions={long} activeKey="s:demo/late-worker" scope="long-group" row={(s) => <a href={`/s/${s.machine_id}/${s.session_id}`}>{s.title}</a>} /></FoldScope>));
+  const parent = host.querySelector('[data-agent-parent="s:demo/agent-250"]')!;
+  expect(parent.querySelector('a[href="/s/demo/late-worker"]')).not.toBeNull();
+  expect(parent.querySelector("button")!.getAttribute("aria-expanded")).toBe("true");
+  // 300 top-level agents, not 301 rows: the worker is under its parent, and most parts are not drawn
+  expect(host.querySelectorAll("a").length).toBeLessThan(long.length);
+  expect(host.querySelectorAll('[data-agent-parent]')).toHaveLength(1);
 });

@@ -30,6 +30,7 @@ import { stateCount } from "../lib/state-labels";
 import { neverConnected } from "../lib/add-computer";
 import { type GoFn, GroupCount, holdsRow, type NodeMenuFn, type RegFn, rowKey, type RowMenuFn, Section, SidebarGroup } from "./SidebarParts";
 import { NavRow, SessionRow } from "./SidebarRows";
+import { WindowedRows } from "./WindowedRows";
 import type { WorkspaceTarget } from "../lib/workspace-catalog";
 import { selectWorkspace, useWorkspaceSelection } from "../lib/workspace-selection";
 import { DirectionCountsText, DirectionStateText } from "./DirectionMarks";
@@ -175,7 +176,7 @@ function GroupTitle({ name, onToggle }: { name: string; onToggle: () => void }) 
  *  the most urgent of its agents' states, and, where its name does not say it (`hint`), an ⓘ saying what it holds, which
  *  is also what an open, empty group says. `section`: drawn as the section headings around it are (the "By pinned"
  *  grouping's). */
-export function GroupBranch({ branch, name, hint, icon, n, state, folded, onToggle, section, children }: { branch: string; name: string; hint?: string; icon: IconName; n: number; state: TreeState; folded: boolean; onToggle: () => void; section?: boolean; children?: React.ReactNode }) {
+export function GroupBranch({ branch, name, hint, icon, n, state, label, folded, onToggle, section, children }: { branch: string; name: string; hint?: string; icon: IconName; n: number; state: TreeState; /** said in place of `state`'s word (agentGroupLabel) */ label?: string; folded: boolean; onToggle: () => void; section?: boolean; children?: React.ReactNode }) {
   const said = n > 0 ? state : undefined;
   const info = hint ? <InfoTip name={name} text={hint} /> : null;
   const body = n > 0 ? children : undefined;
@@ -185,14 +186,14 @@ export function GroupBranch({ branch, name, hint, icon, n, state, folded, onTogg
         title={<SectionTitle icon={icon} name={name} />}
         folded={folded}
         onToggle={onToggle}
-        right={<span className="flex shrink-0 items-center gap-1.5">{info}<BranchEnd n={n} state={said} /></span>}
+        right={<span className="flex shrink-0 items-center gap-1.5">{info}<BranchEnd n={n} state={said} label={label} /></span>}
       >
         {body ?? (hint ? <EmptyHint text={hint} /> : null)}
       </Section>
     );
   }
   return (
-    <TreeBranch branch={branch} top folded={folded} onToggle={onToggle} toggleLabel={name} icon={icon} title={<GroupTitle name={name} onToggle={onToggle} />} info={info} end={<><span className="flex-1" /><BranchEnd n={n} state={said} /></>} empty={hint}>
+    <TreeBranch branch={branch} top folded={folded} onToggle={onToggle} toggleLabel={name} icon={icon} title={<GroupTitle name={name} onToggle={onToggle} />} info={info} end={<><span className="flex-1" /><BranchEnd n={n} state={said} label={label} /></>} empty={hint}>
       {body}
     </TreeBranch>
   );
@@ -203,8 +204,8 @@ export function GroupBranch({ branch, name, hint, icon, n, state, folded, onTogg
 const LooseBranch = memo(function LooseBranch({ g, section, ...p }: { g: LooseGroup; section?: boolean } & TreeRowProps) {
   const [folded, toggle] = useFolded(g.key, g.folded, { follow: true, holds: holdsRow(g.sessions, p.activeKey) });
   return (
-    <GroupBranch branch={g.key} name={g.name} hint={g.hint} icon="layers" n={g.sessions.length} state={g.state} folded={folded} onToggle={toggle} section={section}>
-      {g.agents.map((a) => <TreeAgentRows key={a.key} a={a} depth={0} {...p} activeKey={withinAgent(a, p.activeKey)} />)}
+    <GroupBranch branch={g.key} name={g.name} hint={g.hint} icon="layers" n={g.sessions.length} state={g.state} label={g.label} folded={folded} onToggle={toggle} section={section}>
+      <WindowedRows items={g.agents} holds={(a) => withinAgent(a, p.activeKey) !== ""} render={(a) => <TreeAgentRows key={a.key} a={a} depth={0} {...p} activeKey={withinAgent(a, p.activeKey)} />} />
     </GroupBranch>
   );
 });
@@ -238,7 +239,7 @@ export const TreeTodoRows = memo(function TreeTodoRows({ td, top, ...p }: { td: 
       title={title}
       end={<>{(td.sessions.length > 0 || !td.taskState) && <GroupCount n={td.sessions.length} label={t("sidebar.agent_count", { count: td.sessions.length })} className="shrink-0" />}{state}</>}
     >
-      {td.agents.map((a) => <TreeAgentRows key={a.key} a={a} depth={0} {...p} activeKey={withinAgent(a, p.activeKey)} />)}
+      <WindowedRows items={td.agents} holds={(a) => withinAgent(a, p.activeKey) !== ""} render={(a) => <TreeAgentRows key={a.key} a={a} depth={0} {...p} activeKey={withinAgent(a, p.activeKey)} />} />
     </TreeBranch>
   );
 });
@@ -255,9 +256,14 @@ const TreeAgentRows = memo(function TreeAgentRows({ a, machineLabel, showHost, n
 
 /** The same explicit agent forest in each group. Parents outside the visible group are never pulled into it. */
 export function AgentTreeRows({ sessions, row, activeKey, scope }: { sessions: Session[]; row: (s: Session) => React.ReactNode; activeKey: string; scope: string }) {
-  const roots = useMemo(() => nestAgents(sessions, undefined, Date.now()), [sessions]);
-  return <>{roots.map((a) => <AgentBranch key={a.key} a={a} row={row} activeKey={activeKey} scope={scope} />)}</>;
+  const roots = useAgentForest(sessions);
+  // a long group is drawn a part at a time (WindowedRows), counted by its top-level agents
+  return <WindowedRows items={roots} holds={(a) => holdsAgent(a, activeKey)} render={(a) => <AgentBranch key={a.key} a={a} row={row} activeKey={activeKey} scope={scope} />} />;
 }
+
+const useAgentForest = (sessions: Session[]): TreeAgent[] => useMemo(() => nestAgents(sessions, undefined, Date.now()), [sessions]);
+/** The agent or one under it is the open row. */
+const holdsAgent = (a: TreeAgent, activeKey: string): boolean => withinAgent(a, activeKey) !== "";
 
 function AgentBranch({ a, row, activeKey, scope, keyPrefix }: { a: TreeAgent; row: (s: Session) => React.ReactNode; activeKey: string; scope: string; keyPrefix?: string }) {
   const descendants = useMemo(() => {
@@ -352,7 +358,7 @@ function RepoSection({ tree, reg, hover, activeKey, go, onRowMenu, selected, ...
 
 /** One working tree's agents under its own folding row: the main checkout wears a home mark, and a tree with nothing
  *  running says so. Orca child worktrees have their own remembered, initially expanded chip after the parent's agents. */
-function RepoWorktreeRows({ w, repo, row, activeKey, go, selected, ...actions }: { w: RepoWorktree; repo: string; row: (s: Session, hint: string) => React.ReactNode; activeKey: string; go: GoFn; selected?: string } & WorkspaceTreeActions) {
+function RepoWorktreeRows({ w, repo, row, activeKey, go, selected, ...actions }: { w: RepoWorktree; repo: string; row: (s: Session, hint: string) => React.ReactElement; activeKey: string; go: GoFn; selected?: string } & WorkspaceTreeActions) {
   const [folded, toggle] = useFolded(w.key, !w.workspace && w.sessions.length === 0, { holds: holdsRow(w.navigationTree ?? w.tree, activeKey) || w.children.some((child) => holdsWorkspace(child, selected)) });
   const descendants = w.navigationTree ? w.children.flatMap((c) => c.navigationTree ?? c.tree) : w.tree.slice(w.sessions.length);
   const [childrenFolded, toggleChildren] = useFolded(`${w.key}/children`, false, { holds: holdsRow(descendants, activeKey) || w.children.some((child) => holdsWorkspace(child, selected)) });
@@ -571,7 +577,7 @@ export function MachineSection({ m, shells, ...p }: { m: HerdrMachine; shells?: 
       }>
       <Collapse open={!folded} sidebarFold unclipped>
         <div className="flex flex-col gap-px" inert={folded || undefined}>
-          {m.spaces.map((sp) => <WorkspaceBlock key={sp.key} sp={sp} {...p} />)}
+          <WindowedRows items={m.spaces} holds={(sp) => holdsRow(sp.tree, p.activeKey)} render={(sp) => <WorkspaceBlock key={sp.key} sp={sp} {...p} />} />
           {shells && shells.length > 0 && <ShellTree mid={m.machine.id} online={online} spaces={shells} {...p} />}
           {m.other.length > 0 && (
             // "Other": the machine's agents outside any workspace (Codex threads, runtimes without spaces)
@@ -608,6 +614,9 @@ function TreeBlock({ foldKey, sessions, activeKey, state, title, right, children
 }
 
 function WorkspaceBlock({ sp, ...p }: { sp: HerdrSpace } & TreeProps) {
+  const orcaForest = sp.sessions.some((s) => (s.host || sessionHost(s)) === "orca" && s.parent_agent_id);
+  const looseRoots = useAgentForest(sp.loose);
+  const looseRow = (s: Session) => <TreeSessionRow s={s} {...p} />;
   const tabs = sp.tabs.length;
   return (
     <TreeBlock
@@ -633,12 +642,17 @@ function WorkspaceBlock({ sp, ...p }: { sp: HerdrSpace } & TreeProps) {
         </>
       )}
     >
-      {sp.sessions.some((s) => (s.host || sessionHost(s)) === "orca" && s.parent_agent_id) ? (
+      {/* a workspace with hundreds of tabs is drawn a part at a time, as the other groupings' long groups are; an Orca
+          workspace whose workers name their coordinator draws its agent forest across tabs instead */}
+      {orcaForest ? (
         <AgentTreeRows sessions={sp.sessions} activeKey={p.activeKey} scope={sp.foldKey} row={(s) => <TreeSessionRow s={s} {...p} />} />
-      ) : <>
-        {sp.tabs.map((t) => <TabRow key={t.key} t={t} {...p} />)}
-        <AgentTreeRows sessions={sp.loose} activeKey={p.activeKey} scope={sp.foldKey} row={(s) => <TreeSessionRow s={s} {...p} />} />
-      </>}
+      ) : (
+        <WindowedRows<HerdrTab | TreeAgent>
+          items={sp.tabs.length && looseRoots.length ? [...sp.tabs, ...looseRoots] : sp.tabs.length ? sp.tabs : looseRoots}
+          holds={(x) => ("lead" in x ? holdsRow(x.sessions, p.activeKey) : holdsAgent(x, p.activeKey))}
+          render={(x) => ("lead" in x ? <TabRow key={x.key} t={x} {...p} /> : <AgentBranch key={x.key} a={x} row={looseRow} activeKey={p.activeKey} scope={sp.foldKey} />)}
+        />
+      )}
       {sp.children.length > 0 && <ChildSpaces sp={sp} {...p} />}
     </TreeBlock>
   );
@@ -717,8 +731,8 @@ function TabRow({ t: tab, ...p }: { t: HerdrTab } & TreeProps) {
   const [folded, toggle] = useFolded(tab.foldKey, false);
   const shut = single || folded;
   const open = tab.sessions.find((x) => rowKey(x) === activeKey);
-  // opened up, the open agent's own row is the one lit; folded, the tab's row is, and the hidden pane rows (still
-  // mounted in the collapse) register under no key, so the highlight and the scroll to the open row find the tab's
+  // opened up, the open agent's own row is the one lit; folded, the tab's row is, and the pane rows (still mounted
+  // while the fold closes) register under no key, so the highlight and the scroll to the open row find the tab's
   const keys = tabRowKeys(`t:${tab.key}`, tab.sessions.map(rowKey), activeKey, shut);
   const k = keys.row;
   const to: Route = { name: "tab", mid: tab.lead.machine_id, space: tab.spaceId, slot: tab.slotId };

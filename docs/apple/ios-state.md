@@ -85,7 +85,8 @@ Step 6 (#270) made the hub send `sessions_delta`: it remembers the sessions sent
 
 The most expensive part of a push is the Agents list body (grouping, sorting, folding, counting), so its `AgentsFeed` publishes structure separately from rows:
 - One `AgentsFeed.Row` (`@Observable`) per Agent; rows (`SlotRow` / `CompactSlotRow`) read it, and a push updates only the changed `Row`s;
-- `sessions`, read by list body, is replaced only when structure changes: compare `AgentsFeed.shape`, i.e. sessions with row-only fields removed (`rev`, last line, ports, queue, suggestions, modes, model, seen time; time rounded to minutes; sub-Agents and background tasks reduced to whether any are running);
+- `sessions`, read by list body, is replaced only when structure changes: compare `AgentsFeed.shape`, i.e. sessions with row-only fields removed (`rev`, last line, ports, queue, suggestion text and its risk flag, modes, model, seen time; time rounded to minutes; sub-Agents and background tasks reduced to whether any are running);
+  a bounded summary merge preserves both suggestion fields with the other chat-only details, while the open-chat comparison still sees a risk-only change and redraws the pill;
 - during search the list filters by last line, so last line becomes structural (`searching`);
 - holding and critical bypass stay: `Row`s and structure land together, and critical updates update only listed rows too (`landCritical`);
 - `probe.agents-list` reads each row (`AgentsListProbe`), measuring what's drawn, not the list structure.
@@ -350,6 +351,23 @@ rather than asking SwiftUI's `ScrollPosition`:
    forgets the position before it moves the list for the same reason. 0.3 s after landing the list is looked at once more:
    if anything took it from the newest end while the chat follows, it goes there again (logged as `chat-jump`).
 
+### Every other jump (#5076)
+
+The chat's other animated jumps to its newest end run the same way on iPhone and iPad (`ChatJumpRun`), not through
+SwiftUI's animated `ScrollPosition`, which drew every text on screen again on every frame (in a long Chinese answer,
+most of each frame: docs/lessons/ios.md「Animated jumps redraw every text they pass」):
+
+- To the newest end, animated (`scrollToEnd(animated: true)`): a message sent while reading the history, following
+  catching up more than a screen away, a held row let go. As ↓: the position is forgotten first, the jump runs, the
+  geometry is read once there and looked at again 0.3 s later.
+- To a line (the edge navigator's line, a quote's message, a call): SwiftUI's animated `scrollTo(id:anchor: .center)`
+  as before. Run on the list, a far one cost a longer frame than SwiftUI's own worst there, and one partly on screen
+  moved where SwiftUI's did not (docs/lessons/ios.md「Animated jumps redraw every text they pass」).
+- Offsets stay on whole pixels on the way; the last frame is the exact target. Reduce Motion: there at once.
+- `-showSwiftUIJumps YES` (DEBUG) keeps SwiftUI's animated scroll for these too, to measure against in one build
+  (`-showJumpPerf`, `-showAutoScroll`'s sweep, which runs on the list by default; docs/operations/testing.md「Long Agent
+  answer (#4970)」). The Mac keeps SwiftUI's (frozen).
+
 ↓ acts the moment the finger lands, a glide or not: a UIKit view laid over the button takes the touch
 (`JumpArrowTouch`; a tap on the SwiftUI `Button` during a glide did nothing on phones,
 docs/lessons/ios.md「Jump to Latest during a glide: take the touch in UIKit, on touch-down」).
@@ -425,7 +443,7 @@ Why it works this way:
 Measurement: decode simulator recordings frame by frame, calculate content displacement relative to the previous frame, last-row distance from the composer, and "large change then reversal within a frame" jumps. In the App, `-scrollTrace YES`
 records UIKit / AppKit offset, content height, finger / inertia, and follow state each frame (`ScrollTrace`). Cases: `StreamingScrollTests` (mock `/mock/say?preset=markdown`:
 code blocks, tables, lists, delta every 80 ms like the hub; `&late=600` clears first and sends the committed message 600 ms later). A locked Mac can't record the screen and has no real trackpad:
-`MacScrollLab` sends synthetic two-finger scroll and inertia to the list, rendering the window every 0.1 s (`docs/apple/mac.md`). Tools live in `scripts/diag/stream-scroll/`.
+`MacScrollLab` sent synthetic two-finger scroll and inertia to the list, rendering the window every 0.1 s (`docs/archive/apple/mac.md`). Tools live in `scripts/diag/stream-scroll/`.
 
 | Symptom (before the fix) | Cause | Fix |
 | --- | --- | --- |

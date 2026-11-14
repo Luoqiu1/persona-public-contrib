@@ -61,7 +61,7 @@ func (s *Service) fitLauncher(ctx context.Context, m Device, own startPick, para
 	}
 	list, known := s.launchersHere(withUnhidden(ctx, name), m.ID) // a hidden default still runs (#4659)
 	if !known {
-		return "", "", nil
+		return "", s.lastSeenAgent(ctx, m.ID, name), nil
 	}
 	configured := make([]ConfiguredLauncher, 0, len(list))
 	for _, l := range list {
@@ -103,15 +103,50 @@ func (s *Service) fitLauncher(ctx context.Context, m Device, own startPick, para
 	return note, agentOf(current), nil
 }
 
+// lastSeenAgent is the agent type of launcher name on machine in the last launcher list the hub saw there (the
+// persisted snapshot, zshrcLaunchersLastSeen), with hub.json's launchers applied, for a start whose live list could
+// not be read (a slow or busy computer). Without it a Claude wrapper such as a relay script counted as an unknown
+// agent: its task fell back to the computer's Claude default mode, and when that read timed out too, to "default",
+// so the Agent stopped on its first Bash approval. "" when the snapshot does not name it: nothing is guessed.
+func (s *Service) lastSeenAgent(ctx context.Context, machine, name string) string {
+	if name == "" {
+		return ""
+	}
+	seen, _ := s.zshrcLaunchersLastSeen(ctx)
+	for _, z := range seen {
+		if z.MachineID != machine {
+			continue
+		}
+		var configured []ConfiguredLauncher
+		for _, l := range z.Launchers {
+			if l.Name == name {
+				configured = append(configured, ConfiguredLauncher{Launcher: l})
+			}
+		}
+		if len(configured) == 0 {
+			return ""
+		}
+		for _, l := range sessionLaunchers(configured, s.hello(ctx).Models.Launchers[machine]) {
+			if l.Name == name {
+				return l.AgentType
+			}
+		}
+	}
+	return ""
+}
+
 // launchersHere is what machine can start: machineLaunchers (its own launchers but the hidden ones, and the managed
 // ones) and those hub.json names for it (a wrapper the node may not list, configuredLauncher). known false when its
 // list can't be read, or the answer names none of its own: a node that read its shell lists plain claude at least
-// (node mergeLaunchers), so such an answer is no list.
+// (node mergeLaunchers), so such an answer is no list. The hub-added built-in is not evidence of a readable list.
 func (s *Service) launchersHere(ctx context.Context, machine string) (list []proto.Launcher, known bool) {
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	list, err := s.machineLaunchers(cctx, machine)
-	if err != nil || !slices.ContainsFunc(list, func(l proto.Launcher) bool { return compat.Source(l.Source) != "persona" }) {
+	if err != nil || !slices.ContainsFunc(list, func(l proto.Launcher) bool {
+		source := compat.Source(l.Source)
+		return source != "persona" && source != "builtin"
+	}) {
 		return nil, false
 	}
 	for _, c := range s.hello(ctx).Models.Launchers[machine] {

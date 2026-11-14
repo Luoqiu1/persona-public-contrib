@@ -200,7 +200,7 @@ DSM pitfalls: full path `sudo /usr/local/bin/docker`, absent from noninteractive
 ```sh
 git worktree add --detach /tmp/persona-build <commit>
 (cd /tmp/persona-build/server && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "$(cat build-tags.txt)" -trimpath \
-  -ldflags "-s -w -X main.version=$(git describe --always)-$(date +%Y%m%d%H%M)" -o /tmp/personad-linux-amd64 ./cmd/personad)
+  -ldflags "-s -w -X main.version=$(git describe --tags --match 'v[0-9]*' --always)-$(date +%Y%m%d%H%M)" -o /tmp/personad-linux-amd64 ./cmd/personad)
 git worktree remove /tmp/persona-build
 ssh <nas> 'umask 077; mkdir -p ~/.persona/bin && cat > ~/.persona/bin/personad.new && chmod 755 ~/.persona/bin/personad.new' < /tmp/personad-linux-amd64
 ```
@@ -495,7 +495,7 @@ Adding a migration:
 
 | File | Content |
 | --- | --- |
-| `hub.json` | listen, token, `public_url`, public (TLS / candidate addresses), security (trust / auth rate limits, [network.md](../operations/network.md#hubjson-网络配置)), name display name, admin access scope ([admin.md](../operations/admin.md)), `database_url`, machines; notify (notification timing, `docs/operations/config.md`); `assistant.external`, `persona_view`, `html_views` |
+| `hub.json` | listen, token, `public_url`, public (TLS / candidate addresses), security (trust / auth rate limits, [network.md](../operations/network.md#hubjson-网络配置)), name display name, admin access scope ([admin.md](../operations/admin.md)), `database_url`, machines; notify (notification timing, `docs/operations/config.md`); `assistant.external` |
 | `managers/assistant/manager.json` | The built-in manager's own sections (`docs/operations/config.md` ("manager.json")): `assistant.owner` / `notes` / `machine` / `launcher`, `ai`, `agents`, `inbox`, `kb`, `hook_timeout_minutes`, lark, `lark_gate`, `connector_gate`, github, imessage, google, microsoft, bots, extensions / plugins, `trusted_extension_markets`, usage, `sent_ledger_days`, `sent_recall_hours`; e.g. `google.client_id` (Gmail iOS OAuth client), `google.proxy` (Gmail HTTP proxy, e.g. http://127.0.0.1:<port>, `docs/extensions/mail.md`), `github.proxy` (all GitHub connector requests, same format) |
 | `tls/hub.key`, `tls/hub.crt` | Automatically managed ECDSA P-256 identity key / self-signed cert, directory 0700, files 0600, private key outside DB. Rotation requires device re-pairing |
 | `secret.key` | The hub's own 32-byte key (peer tokens, connector credentials). The built-in manager's key, which seals its secrets (mail, model providers, extensions), is in `managers/assistant/` with its `tailcat-hub.json` and `handles.key`: a copy of the hub's on an upgraded install until it rotates to its own after the move ([managers.md](../assistant/managers.md) ("The built-in manager's own files", "Its own secret.key")) |

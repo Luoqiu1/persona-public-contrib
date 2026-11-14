@@ -4,7 +4,7 @@
 // A thread that cannot be read (a CI run, a rate limit, a connector without threads) shows what the hub collected
 // about the item instead, with "Open in X". Read-only otherwise: no pages for browsing the source (CLAUDE.md).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { api, errorText } from "../../lib/api";
+import { api, ApiError, errorText } from "../../lib/api";
 import {
   chatHeadline, checkLabel, githubStateLabel, isChatThread, isGitHubThread, labelColor, loadThread, mediaLine, mediaURL, mergeNewest, mergeOlder,
   reachMessage, replyInThread, reviewLabel, startsGroup, type ThreadChat, type ThreadMedia, type ThreadMessage, type ThreadPage,
@@ -82,8 +82,9 @@ function ConnectorThreadBody({ item, manager }: { item: InboxItem; manager?: str
     } catch (e) {
       if (!current()) return;
       // Said over the text only when it is worth saying (a rate limit, the connector unavailable); a thread that
-      // simply has no page of its own (a CI run) falls back quietly. "" is failed, null still loading.
-      setFailure(conversationFailure(e));
+      // simply has no page of its own (a CI run; a subscription's item, which an older manager answers with 404
+      // `no connector`, #5537) falls back quietly; a source without conversations is noted, the rest said.
+      setFailure(e instanceof ApiError && e.status === 404 ? null : conversationFailure(e));
       setLoaded(true);
     }
   }, [id, thread, manager]);
@@ -198,15 +199,15 @@ function ConnectorText({ item, problem, onRetry }: { item: InboxItem; problem?: 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {c?.url && (
               <Button tone="secondary" icon="external" onClick={() => openLink(c.url!, item.title, item.manager)}>
-                {tightCJK(t("inbox-connectorthread.open_in", { name: item.account_name || item.source }))}
+                {item.source === "assistant" ? t("inbox-connectorthread.open_chat") : tightCJK(t("inbox-connectorthread.open_in", { name: item.account_name || item.source }))}
               </Button>
             )}
             {item.source !== "larkcli" && c?.reply_to && c.can_reply && <p className="min-w-0 text-[12px] text-ink-3">{t("inbox-connectorthread.reply_goes", { how: c.reply_to })}</p>}
           </div>
         )}
         {problem && <ConnectorReadNotice failure={problem} onRetry={onRetry} />}
-        <p className="text-[12px] font-medium text-ink-3">{t("inbox-connectorthread.content")}</p>
-        {context === null && !failure ? <Loading /> : failure ? (
+        {!onlyTitleAndSummary(item, context) && <p className="text-[12px] font-medium text-ink-3">{t("inbox-connectorthread.content")}</p>}
+        {onlyTitleAndSummary(item, context) ? null : context === null && !failure ? <Loading /> : failure ? (
           <p className="text-[12.5px] text-red">{t("inbox-connectorthread.content_failed", { error: failure })}</p>
         ) : (
           <div className="text-[13px] leading-relaxed break-words whitespace-pre-wrap text-ink select-text">{context || item.preview || t("inbox-connectorthread.no_collected_content")}</div>
@@ -214,6 +215,14 @@ function ConnectorText({ item, problem, onRetry }: { item: InboxItem; problem?: 
       </div>
     </div>
   );
+}
+
+/** The assistant's own row whose text is only its title and summary, already shown above: no Content section. */
+function onlyTitleAndSummary(item: InboxItem, context: string | null): boolean {
+  if (item.source !== "assistant" || !item.summary) return false;
+  const text = (context ?? item.preview ?? "").replace(/\s+/g, " ").trim();
+  const known = `${item.title} ${item.summary}`.replace(/\s+/g, " ").trim();
+  return text === "" || text === known || text === item.summary.replace(/\s+/g, " ").trim();
 }
 
 // ── the answer box ───────────────────────────────────────

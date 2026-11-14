@@ -195,13 +195,10 @@ func (s *Service) agentGone(ix proto.Interaction) bool {
 	if ix.SessionID == "" {
 		return false
 	}
-	// Only whether it is listed: neither the list nor a matching row needs a copy.
-	found := false
-	_, listed := s.nodeSessionsWhere(ix.MachineID, func(c *proto.Session) bool {
-		found = found || c.SessionID == ix.SessionID
-		return false
-	})
-	return listed > 0 && !found
+	// Only whether it is listed: no copy of the list, nor of the card (the closure takes the id alone).
+	sid := ix.SessionID
+	found, listed := s.nodeSessionsWhere(ix.MachineID, func(c *proto.Session) bool { return c.SessionID == sid })
+	return listed > 0 && len(found) == 0
 }
 
 // botNudge replies under c with the nudge: in a topic group in the topic, @-mentioning the owner, which is what makes

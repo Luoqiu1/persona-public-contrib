@@ -44,6 +44,7 @@ func TestHostHierarchyUsesPublicPaneIdentity(t *testing.T) {
 		}
 	}
 	list = append(list, proto.Session{SessionID: "ambiguous", PaneID: "orca:tab:parent"})
+	list[1].SetParentAgentID("") // each list build starts from unlinked rows
 	resolveHostHierarchy(list, agents)
 	if list[1].ParentAgentID() != "" {
 		t.Fatal("ambiguous pane accepted as parent")

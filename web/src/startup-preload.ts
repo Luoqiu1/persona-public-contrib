@@ -292,11 +292,14 @@ export async function brotliCopies(dir: string, files: string[]): Promise<{ file
 // settings tab's name and line. The list, its reads, its words, the editor and the settings page are chunks of their
 // own, loaded the first time a box has the focus, the menu item is picked or the page opens. The budget moves by these
 // 192 B on top of #7339's.
+// A folded-search retry now clears its partial warning only after every requested fold has loaded; real failures and
+// budget caps still show it (#7389). Measured: en 476,854 B, ja 480,545 B, zh-Hans 477,834 B. The budget moves by 51 B.
 // #4575: Orca workers nested under their coordinator in every full-list grouping (the explicit agent forest, its
-// disclosure and folded descendant tally) add 380 B to each language, measured in one environment against main at
-// e238a05f6 (ja 480,443 B to 480,823 B; en 476,752 B to 477,132 B, zh-Hans 477,732 B to 478,112 B). The budget moves by
-// the same 380 B, keeping main's 51 B of room.
-export const FIRST_SCREEN_BUDGET = 480_874;
+// disclosure and folded descendant tally) add 261 B to each language, measured in one environment against main at
+// 745617e27 (ja 480,516 B to 480,777 B; en 476,825 B to 477,086 B, zh-Hans 477,805 B to 478,066 B). The budget moves by
+// the same 261 B.
+export const FIRST_SCREEN_BUDGET = 480_806;
+
 // The hash in a built file's name: the 8 characters of Rollup's [hash] (url-safe base64) between "-" and the
 // extension, as vite.config.ts names every chunk and asset ("assets/[name]-[hash].js", "[name]-[hash][extname]").
 const NAME_HASH = /-([A-Za-z0-9_-]{8})\.[^./]+$/;

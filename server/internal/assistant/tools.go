@@ -90,8 +90,10 @@ func (s *Service) Tool(ctx context.Context, call ToolCall) proto.ToolResult {
 // appTool runs a tool that is app's (app.call app.tool).
 func (s *Service) appTool(ctx context.Context, app string, call ToolCall, args json.RawMessage) proto.ToolResult {
 	var res proto.ToolResult
-	if err := s.appCall(ctx, app, AppTool, map[string]any{"name": compat.LegacyTool(call.Name), "arguments": args, "machine_id": call.MachineID,
-		"session_id": call.SessionID}, &res); err != nil {
+	params := map[string]any{"name": compat.LegacyTool(call.Name), "arguments": args, "machine_id": call.MachineID,
+		"session_id": call.SessionID}
+	mcpWaitParams(ctx, params)
+	if err := s.appCall(ctx, app, AppTool, params, &res); err != nil {
 		return proto.TextResult(err.Error(), true)
 	}
 	return res
@@ -821,6 +823,8 @@ func (s *Service) toolAskUser(ctx context.Context, machine, sessionID string, ar
 // may instead let go of the turn while a message waits for its conversation (errReleased, ask_release.go): its card
 // then stays up, and its end is told to the conversation as a message.
 func (s *Service) ask(ctx context.Context, ix proto.Interaction) (proto.Resolution, error) {
+	resume := pushMCPInteraction(ctx, ix)
+	defer resume()
 	ix = s.ownCard(ctx, ix)
 	q := &question{ix: ix, answer: make(chan proto.Resolution, 1)}
 	if ix.ToolName == "ask_user" && ix.Kind == proto.IxQuestion {
